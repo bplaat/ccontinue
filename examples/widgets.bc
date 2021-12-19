@@ -1,0 +1,46 @@
+// Run: ../bc.py -d widgets.bc && gcc widgets.c -o widgets && ./widgets
+
+#include "list.bc"
+
+class Context {}
+
+typedef struct Rect {
+    int x, y, width, height;
+} Rect;
+
+class Widget {
+    @Prop @Init Context *context;
+    @Prop(Rect *, int x, int y, int width, int height) Rect rect;
+    @Prop bool visible;
+}
+
+abstract class Container extends Widget {
+    @Get @Extend(List) @Free(List_Free) List *children = new List(8);
+}
+
+typedef enum Orientation {
+    ORIENTATION_HORIZONTAL,
+    ORIENTATION_VERTICAL
+} Orientation;
+
+class Box extends Container {
+    @Prop @Init Orientation orientation;
+}
+
+class Label extends Widget {
+    @Prop @Init(wcsdup) @Free wchar_t *text;
+}
+
+int main(void) {
+    Context *context = new Context();
+
+    Box *box = new Box(context, ORIENTATION_VERTICAL);
+    Box_ChildrenAdd(box, OBJECT(new Label(context, L"Line 1")));
+    Box_ChildrenAdd(box, OBJECT(new Label(context, L"Line 2")));
+    Box_ChildrenAdd(box, OBJECT(new Label(context, L"Line 3")));
+    Box_Free(box);
+
+    Context_Free(context);
+
+    return EXIT_SUCCESS;
+}

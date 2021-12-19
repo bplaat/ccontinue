@@ -1,0 +1,25 @@
+// Run: ../bc.py hello.bc && gcc hello.c -o hello && ./hello
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+class Person {
+    @Prop @Init(strdup) @Free char *name;
+    @Prop @Init int age;
+
+    void Greet();
+}
+
+void Person::Greet() {
+    printf("Hello %s, you are %d years old!\n", this->name, this->age);
+}
+
+int main(void) {
+    Person *person = Person_New("Bastiaan", 18);
+    Person_SetAge(person, Person_GetAge(person) + 1);
+    Person_Greet(person);
+    Person_Free(person);
+
+    return EXIT_SUCCESS;
+}
