@@ -10,6 +10,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdint.h>
+#include <stdbool.h>
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
 typedef struct Object Object;
 
@@ -22,7 +28,7 @@ struct Object {
     const ObjectVtbl *vtbl;
 };
 
-#define OBJECT(ptr) ((Object *)ptr)
+#define OBJECT(object) ((Object *)object)
 #define Object_Init(this) ((Object *)this)->vtbl->Init((Object *)this)
 #define Object_Free(this) ((Object *)this)->vtbl->Free((Object *)this)
 
@@ -48,7 +54,7 @@ struct Person {
 
 extern Person *Person_New(char *name, int age);
 
-#define PERSON(ptr) ((Person *)ptr)
+#define PERSON(person) ((Person *)person)
 #define Person_Init(this, name, age) ((Person *)this)->vtbl->Init((Person *)this, name, age)
 #define Person_Free(this) ((Person *)this)->vtbl->Free((Person *)this)
 #define Person_Greet(this) ((Person *)this)->vtbl->Greet((Person *)this)

@@ -6,6 +6,8 @@
 
 
 
+void _Object_Init(Object *this) {}
+
 void _Object_Free(Object *this) {
     
     free(this);
@@ -30,7 +32,7 @@ PersonVtbl _PersonVtbl = {
 };
 
 Person *Person_New(char *name, int age) {
-    Person *this = malloc(sizeof(Person));
+    Person *this = calloc(1, sizeof(Person));
     this->vtbl = &_PersonVtbl;
     Person_Init(this, name, age);
     return this;
@@ -38,7 +40,7 @@ Person *Person_New(char *name, int age) {
 
 void _Person_Init(Person *this, char *name, int age) {
     this->name = strdup(name);
-    this->age = age;
+    this->age = (age);
 }
 
 void _Person_Free(Person *this) {

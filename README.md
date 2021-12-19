@@ -31,8 +31,8 @@ int main(void) {
 Use field attributes to generate methods:
 ```
 class Person {
-    @Prob @Init(strdup) @Free char *name;
-    @Prob int age;
+    @Prop @Init(strdup) @Free char *name;
+    @Prop int age;
 }
 ```
 
@@ -67,12 +67,20 @@ void Person::SetAge(int age) {
 
 void Person::Free() {
     if (this->name != NULL) free(this->name);
-    Object::Free(this); // Super method call to previous class
+    Object::Free(this); // <-- Super method call to previous class
 }
 ```
 
+The attributes that are implemented are for now and it arguments:
+- `@Get(type)` Generate a getter method for this field
+- `@Set(type)` Generate a setter method for this field
+- `@Prop(type)` A shortcut to generate a setter and a getter (same as `@Get` `@Set`)
+- `@Init(initFunction)` Use this field as an argument for the generated `Init` method
+- `@Free(freeFunction)` Free this field in the generated `Free` method
+- `@Extend(class)` For a class pointer as a field: generate wrapper functions for all methods of this class field
+
 ### Class inheritance
-The last code is a super method call to previous class. All classe inherit from the base class called `Object` with the defination:
+The last code is a super method call to previous class. All classe inherit from the base class called `Object` with the defination this is handy because now we can enforce that the first function in the vtbl always is the `Init` method and the second is always the `Free` method. We can also do some more generic stuff like that the build in [List](std/list.bc) class frees all its object when it is self freed:
 ```
 abstract class Object {
     void Init();
@@ -89,7 +97,7 @@ void Object::Free() {
 Of course classes can inherit from other classes to reduce code, because all methods calls are using a single static function pointer table and so all methods are automaticly virtual and can changed by child classes. This system is inspired by the ABI of [Microsoft COM](https://en.wikipedia.org/wiki/Component_Object_Model):
 ```
 abstract class Animal {
-    @Prob @Init(strdup) @Free char *name;
+    @Prop @Init(strdup) @Free char *name;
     void Greet();
 }
 
@@ -122,11 +130,11 @@ int main(void) {
 ```
 
 ### The transpiler options
-This needs a lot of work, so to learn more about the language compile some code and see the generated C code. The transpiler will always create one header file and one C code file:
+This needs a lot of work, so to learn more about the language compile some code and see the generated C code. With the `-d` option you can generate print statements when an new class is created an when freed. The transpiler will always create one header file and one C code file:
 ```
 $ ./bc.py test.bc
 $ ls
-test.bc test.h test.c    <-- The generated files
+test.bc test.h test.c    # <-- The generated files
 ```
 
 ## License

@@ -16,7 +16,7 @@ void Person::Greet() {
 }
 
 int main(void) {
-    Person *person = Person_New("Bastiaan", 18);
+    Person *person = new Person("Bastiaan", 18);
     Person_SetAge(person, Person_GetAge(person) + 1);
     Person_Greet(person);
     Person_Free(person);
