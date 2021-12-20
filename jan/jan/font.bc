@@ -1,0 +1,13 @@
+typedef enum JanFontWeight {
+    JAN_FONT_WEIGHT_NORMAL,
+    JAN_FONT_WEIGHT_BOLD
+} JanFontWeight;
+
+class JanFont {
+    @Prop @Init(wcsdup) @Free wchar_t *name;
+    @Prop @Init JanUnit size;
+    @Prop JanFontWeight weight = JAN_FONT_WEIGHT_NORMAL;
+    @Prop bool italic = false;
+    @Prop bool underline = false;
+    @Prop bool lineThrough = false;
+};

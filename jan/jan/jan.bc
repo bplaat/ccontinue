@@ -1,0 +1,82 @@
+#include "list.bc"
+#include "../canvas.h"
+
+// JanColor
+typedef uint32_t JanColor;
+
+#define JAN_COLOR_RGB(r, g, b) CANVAS_RGB(r, g, b)
+#define JAN_COLOR_RGBA(r, g, b, a) CANVAS_RGBA(r, g, b, a)
+#define JAN_COLOR_HEX(x) CANVAS_HEX(x)
+#define JAN_COLOR_HEXA(x) CANVAS_HEXA(x)
+
+// JanRect
+typedef struct JanRect {
+    float x;
+    float y;
+    float width;
+    float height;
+} JanRect;
+
+#define JAN_RECT(x, y, width, height) ((JanRect){ x, y, width, height })
+
+// JanUnit
+typedef enum JanUnitType {
+    JAN_UNIT_TYPE_UNDEFINED,
+    JAN_UNIT_TYPE_WRAP,
+    JAN_UNIT_TYPE_MATCH,
+    JAN_UNIT_TYPE_PX,
+    JAN_UNIT_TYPE_PT,
+    JAN_UNIT_TYPE_DP,
+    JAN_UNIT_TYPE_SP,
+    JAN_UNIT_TYPE_VW,
+    JAN_UNIT_TYPE_VH,
+    JAN_UNIT_TYPE_VMIN,
+    JAN_UNIT_TYPE_VMAX,
+    JAN_UNIT_TYPE_PERCENT
+} JanUnitType;
+
+typedef struct JanUnit {
+    float value;
+    JanUnitType type;
+} JanUnit;
+
+#define JAN_UNIT_UNDEFINED ((JanUnit){ 0, JAN_UNIT_TYPE_UNDEFINED })
+#define JAN_UNIT_WRAP ((JanUnit){ 0, JAN_UNIT_TYPE_WRAP })
+#define JAN_UNIT_MATCH ((JanUnit){ 0, JAN_UNIT_TYPE_MATCH })
+#define JAN_UNIT_ZERO ((JanUnit){ 0, JAN_UNIT_TYPE_PX })
+#define JAN_UNIT(value, type) ((JanUnit){ value, type })
+
+// JanOffset
+typedef struct JanOffset {
+    JanUnit top;
+    JanUnit left;
+    JanUnit right;
+    JanUnit bottom;
+} JanOffset;
+
+#define JAN_OFFSET(top, left, right, bottom) ((JanOffset){ top, left, right, bottom })
+
+typedef struct JanConvertedOffset {
+    float top;
+    float left;
+    float right;
+    float bottom;
+} JanConvertedOffset;
+
+// JanOrientation
+typedef enum JanOrientation {
+    JAN_ORIENTATION_HORIZONTAL,
+    JAN_ORIENTATION_VERTICAL
+} JanOrientation;
+
+// Includes
+#include "font.bc"
+#include "context.bc"
+#include "widget.bc"
+#include "bin.bc"
+#include "scroll.bc"
+#include "container.bc"
+#include "stack.bc"
+#include "box.bc"
+#include "label.bc"
+#include "button.bc"

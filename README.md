@@ -1,9 +1,11 @@
 # BassieC: A object oriented extention of C
 *And simple transpiler that coverts an object oriented extention of C back to C code with nice codegen features*
 
-I created this thingy because I love the simplicity of the C programming language and I have a small to big distaste for C++. It is just a tool that allows you to write Object Oriented code in C without all the boilerplate of implmenting en syncing function pointer tables and getters en setters.
+I created this thingy because I love the simplicity of the C programming language and I have a small to big distaste for C++. It is just a tool that allows you to write Object Oriented code in C without all the boilerplate of generating and syncing function pointer tables of init, free, getters and setters methods.
 
 The transpiler is super basic and a single bad written Python script that uses regular expressions for the parsing of the code.
+
+This repo also contains the [Jan](jan/) experimental GUI library written in BassieC wich uses a lot of it unique codegen features to generate a lot of stub methods and other nice stuff, the main reason for the creation of BassieC was to create a nice object oriented GUI library easily.
 
 ## Language description
 This needs a lot of work, i know...
