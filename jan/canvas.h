@@ -4,6 +4,7 @@
 
 // Define options:
 // CANVAS_IMPLEMENTATION: Use this once in your project for the c code
+// CANVAS_USE_CUSTOM_HEADERS: Use custom Direct2D and DirectWrite header files
 // CANVAS_ENABLE_BITMAP: Enable bitmap loading and rendering code
 // CANVAS_ENABLE_STBI_IMAGE: Enable code that uses the STBI image library (needs CANVAS_ENABLE_BITMAP)
 // CANVAS_ENABLE_TEXT: Enable text measuring and rendering code
@@ -15,10 +16,17 @@
 #include <windows.h>
 #include <stdint.h>
 #include <stdbool.h>
+
+#ifdef CANVAS_USE_CUSTOM_HEADERS
+#include "direct2d.h"
+#include "directwrite.h"
+#else
 #define D2D_USE_C_DEFINITIONS
 #include <d2d1.h>
 #define COBJMACROS
 #include <dwrite.h>
+#endif
+
 #ifdef CANVAS_ENABLE_STBI_IMAGE
 #include "stb_image.h"
 #endif

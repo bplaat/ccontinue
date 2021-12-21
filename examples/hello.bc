@@ -1,9 +1,5 @@
 // Run: ../bc.py hello.bc && gcc hello.c -o hello && ./hello
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-
 class Person {
     @Prop @Init(strdup) @Free char *name;
     @Prop @Init int age;
