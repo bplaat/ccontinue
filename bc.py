@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # The BassieC Transpiler v0.1.0
 # This code is an ugly mess I know, but hey it works quite well!
 # Also I want to clean it up in the future...
@@ -17,12 +17,28 @@ stdlib = '''
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <wchar.h>
 #include <stdint.h>
 #include <stdbool.h>
 
+// Some utils
 #define MAX(x, y) (((x) > (y)) ? (x) : (y))
 #define MIN(x, y) (((x) < (y)) ? (x) : (y))
 
+// Nice GNU libc extention function not always in the C library
+char *strdup(const char *s) {
+    char *n = malloc(strlen(s) + 1);
+    strcpy(n, s);
+    return n;
+}
+
+wchar_t *wcsdup(const wchar_t *s) {
+    wchar_t *n = malloc((wcslen(s) + 1) * sizeof(wchar_t));
+    wcscpy(n, s);
+    return n;
+}
+
+// BassieC base class and so the basic standard vtable ABI
 abstract class Object {
     void Init();
     void Free();

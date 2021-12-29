@@ -4,6 +4,19 @@
 #include "widgets.h"
 
 
+char *strdup(const char *s) {
+    char *n = malloc(strlen(s) + 1);
+    strcpy(n, s);
+    return n;
+}
+
+wchar_t *wcsdup(const wchar_t *s) {
+    wchar_t *n = malloc((wcslen(s) + 1) * sizeof(wchar_t));
+    wcscpy(n, s);
+    return n;
+}
+
+
 
 
 void _Object_Init(Object *this) {}
