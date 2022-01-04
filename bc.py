@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 # The BassieC Transpiler v0.1.0
 # This code is an ugly mess I know, but hey it works quite well!
 # Also I want to clean it up in the future...

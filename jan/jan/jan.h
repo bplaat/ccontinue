@@ -7,6 +7,7 @@
 #define MAX(x, y) (((x) > (y)) ? (x) : (y))
 #define MIN(x, y) (((x) < (y)) ? (x) : (y))
 
+
 #define JAN_COLOR_RGB(r, g, b) CANVAS_RGB(r, g, b)
 #define JAN_COLOR_RGBA(r, g, b, a) CANVAS_RGBA(r, g, b, a)
 #define JAN_COLOR_HEX(x) CANVAS_HEX(x)
@@ -28,8 +29,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <wchar.h>
 #include <stdint.h>
 #include <stdbool.h>
+
 
 #include "../canvas.h"
 
