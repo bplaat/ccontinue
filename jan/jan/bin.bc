@@ -1,3 +1,0 @@
-abstract class JanBin extends JanWidget {
-    @Prop @Free(JanWidget_Free) JanWidget *child;
-};

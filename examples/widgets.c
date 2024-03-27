@@ -1,7 +1,9 @@
-// This file is generated via the BassieC Transpiler v0.1.0
-// So editing has probably no use, edit the source file
-
-#include "widgets.h"
+// @generated
+#include <stdbool.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
 
 char *strdup(const char *s) {
@@ -10,86 +12,139 @@ char *strdup(const char *s) {
     return n;
 }
 
-wchar_t *wcsdup(const wchar_t *s) {
-    wchar_t *n = malloc((wcslen(s) + 1) * sizeof(wchar_t));
-    wcscpy(n, s);
-    return n;
-}
 
+typedef struct Object Object;
 
+typedef struct ObjectVtbl {
+    // Object
+    void  (*free)(Object *this);
+} ObjectVtbl;
 
-
-void _Object_Init(Object *this) {}
-
-void _Object_Free(Object *this) {
-    printf("Object_Free(0x%p)\n", this);
-    free(this);
-}
-
-
-
-void _List_Init(List *this, uint32_t capacity);
-void _List_Free(List *this);
-Object *_List_Get(List *this, uint32_t index);
-void _List_Set(List *this, uint32_t index, Object *item);
-void _List_Add(List *this, Object *item);
-void _List_Insert(List *this, uint32_t index, Object *item);
-void _List_Remove(List *this, uint32_t index);
-uint32_t _List_GetCapacity(List *this);
-uint32_t _List_GetSize(List *this);
-
-ListVtbl _ListVtbl = {
-    &_List_Init,
-    &_List_Free,
-    &_List_Get,
-    &_List_Set,
-    &_List_Add,
-    &_List_Insert,
-    &_List_Remove,
-    &_List_GetCapacity,
-    &_List_GetSize
+struct Object {
+    ObjectVtbl *vtbl;
+    // Object
+    size_t refs;
 };
 
-List *List_New(uint32_t capacity) {
-    List *this = calloc(1, sizeof(List));
-    this->vtbl = &_ListVtbl;
-    printf("0x%p = List_New()\n", this);
-    List_Init(this, capacity);
+void  _object_init(Object *this);
+Object * _object_ref(Object *this);
+void  _object_free(Object *this);
+
+ObjectVtbl _ObjectVtbl = {
+    // Object
+    &_object_free,
+};
+
+#define object_init(this) _object_init((Object *)(this))
+#define object_ref(this) _object_ref((Object *)(this))
+#define object_free(this) ((Object *)(this))->vtbl->free((Object *)(this))
+
+
+
+void _object_init(Object *this) {
+    this->refs = 1;}
+
+Object * _object_ref(Object *this) {
+    this->refs++;
     return this;
 }
 
-uint32_t _List_GetCapacity(List *this) {
+void _object_free(Object *this) {
+    if (--this->refs <= 0)
+        free(this);
+}
+
+
+typedef struct List List;
+
+typedef struct ListVtbl {
+    // List
+    void  (*free)(List *this);
+} ListVtbl;
+
+struct List {
+    ListVtbl *vtbl;
+    // Object
+    size_t refs;
+    // List
+    Object ** items;
+    size_t capacity;
+    size_t size;
+};
+
+void  _list_init(List *this);
+void  _list_free(List *this);
+Object * _list_get(List *this, size_t  index);
+void  _list_set(List *this, size_t  index, Object * item);
+void  _list_add(List *this, Object * item);
+void  _list_insert(List *this, size_t  index, Object * item);
+void  _list_remove(List *this, size_t  index);
+size_t _list_get_capacity(List *this);
+size_t _list_get_size(List *this);
+
+ListVtbl _ListVtbl = {
+    // List
+    &_list_free,
+};
+
+#define list_init(this) _list_init((List *)(this))
+#define list_ref(this) _object_ref((Object *)(this))
+#define list_free(this) ((List *)(this))->vtbl->free((List *)(this))
+#define list_get(this, index) _list_get((List *)(this), (index))
+#define list_set(this, index, item) _list_set((List *)(this), (index), (Object *)(item))
+#define list_add(this, item) _list_add((List *)(this), (Object *)(item))
+#define list_insert(this, index, item) _list_insert((List *)(this), (index), (Object *)(item))
+#define list_remove(this, index) _list_remove((List *)(this), (index))
+#define list_get_capacity(this) _list_get_capacity((List *)(this))
+#define list_get_size(this) _list_get_size((List *)(this))
+
+size_t _list_get_capacity(List *this) {
     return this->capacity;
 }
 
-uint32_t _List_GetSize(List *this) {
+size_t _list_get_size(List *this) {
     return this->size;
 }
 
-void _List_Init(List *this, uint32_t capacity) {
-    this->size = 0;
-    this->capacity = capacity;
-    this->items = malloc(sizeof(Object *) * capacity);
+List *list_new(void) {
+    List *this = malloc(sizeof(List));
+    this->vtbl = &_ListVtbl;
+    list_init(this);
+    return this;
 }
 
-Object *_List_Get(List *this, uint32_t index) {
+
+
+void _list_init(List *this) {
+    this->capacity = 8;
+    this->size = 0;
+    object_init(this);
+    this->items = malloc(sizeof(Object *) * this->capacity);
+}
+
+void _list_free(List *this) {
+    for (size_t i = 0; i < this->size; i++)
+        object_free(this->items[i]);
+    free(this->items);
+    _object_free((Object *)this);
+}
+
+Object * _list_get(List *this, size_t index) {
     return this->items[index];
 }
 
-void _List_Set(List *this, uint32_t index, Object *item) {
+void _list_set(List *this, size_t index, Object *item) {
     if (index > this->capacity) {
-        while (index > this->capacity) {
+        while (index > this->capacity)
             this->capacity *= 2;
-        }
         this->items = realloc(this->items, sizeof(Object *) * this->capacity);
     }
-    while (this->size <= index) {
+    while (this->size <= index)
         this->items[this->size++] = NULL;
-    }
     this->items[index] = item;
 }
 
-void _List_Add(List *this, Object *item) {
+void _list_add(List *this, Object *item) {
     if (this->size == this->capacity) {
         this->capacity *= 2;
         this->items = realloc(this->items, sizeof(Object *) * this->capacity);
@@ -97,312 +152,351 @@ void _List_Add(List *this, Object *item) {
     this->items[this->size++] = item;
 }
 
-void _List_Insert(List *this, uint32_t index, Object *item) {
+void _list_insert(List *this, size_t index, Object *item) {
     if (this->size == this->capacity) {
         this->capacity *= 2;
         this->items = realloc(this->items, sizeof(Object *) * this->capacity);
     }
-    for (uint32_t i = this->size - 1; i >= index; i--) {
+    for (size_t i = this->size - 1; i >= index; i--)
         this->items[i + 1] = this->items[i];
-    }
     this->size++;
     this->items[index] = item;
 }
 
-void _List_Remove(List *this, uint32_t index) {
-    for (uint32_t i = index; i < this->size; i++) {
+void _list_remove(List *this, size_t index) {
+    for (size_t i = index; i < this->size; i++)
         this->items[i] = this->items[i + 1];
-    }
     this->size--;
 }
 
-void _List_Free(List *this) {
-    for (uint32_t i = 0; i < this->size; i++) {
-        if (this->items[i] != NULL) {
-            Object_Free(this->items[i]);
-        }
-    }
-    free(this->items);
-    _Object_Free((Object*)this);
-}
+// Run: ../ccc.py widgets.cc && gcc --std=c11 -Wall -Wextra -Wpedantic -Werror widgets.c -o widgets.exe && ./widgets.exe
 
+// Context
+typedef struct Context Context;
+
+typedef struct ContextVtbl {
+    // Object
+    void  (*free)(Object *this);
+} ContextVtbl;
+
+struct Context {
+    ContextVtbl *vtbl;
+    // Object
+    size_t refs;
+};
 
 
 ContextVtbl _ContextVtbl = {
-    &_Object_Init,
-    &_Object_Free
+    // Object
+    &_object_free,
 };
 
-Context *Context_New(void) {
-    Context *this = calloc(1, sizeof(Context));
+#define context_init(this) _object_init((Object *)(this))
+#define context_ref(this) _object_ref((Object *)(this))
+#define context_free(this) ((Context *)(this))->vtbl->free((Object *)(this))
+
+Context *context_new(void) {
+    Context *this = malloc(sizeof(Context));
     this->vtbl = &_ContextVtbl;
-    printf("0x%p = Context_New()\n", this);
-    Context_Init(this);
+    context_init(this);
     return this;
 }
 
-void _Widget_Init(Widget *this, Context *context);
-Context *_Widget_GetContext(Widget *this);
-void _Widget_SetContext(Widget *this, Context *context);
-Rect *_Widget_GetRect(Widget *this);
-int _Widget_GetRectX(Widget *this);
-int _Widget_GetRectY(Widget *this);
-int _Widget_GetRectWidth(Widget *this);
-int _Widget_GetRectHeight(Widget *this);
-void _Widget_SetRect(Widget *this, Rect *rect);
-void _Widget_SetRectX(Widget *this, int rectX);
-void _Widget_SetRectY(Widget *this, int rectY);
-void _Widget_SetRectWidth(Widget *this, int rectWidth);
-void _Widget_SetRectHeight(Widget *this, int rectHeight);
-bool _Widget_GetVisible(Widget *this);
-void _Widget_SetVisible(Widget *this, bool visible);
+
+
+// Widget
+typedef struct Widget Widget;
+
+typedef struct WidgetVtbl {
+    // Object
+    void  (*free)(Object *this);
+    // Widget
+    void  (*draw)(Widget *this);
+} WidgetVtbl;
+
+struct Widget {
+    WidgetVtbl *vtbl;
+    // Object
+    size_t refs;
+    // Widget
+    Context * context;
+    bool visible;
+};
+
+void _widget_init(Widget *this, Context * context);
+void  _widget_draw(Widget *this);
+Context * _widget_get_context(Widget *this);
+bool _widget_get_visible(Widget *this);
+void _widget_set_visible(Widget *this, bool visible);
 
 WidgetVtbl _WidgetVtbl = {
-    &_Widget_Init,
-    &_Object_Free,
-    &_Widget_GetContext,
-    &_Widget_SetContext,
-    &_Widget_GetRect,
-    &_Widget_GetRectX,
-    &_Widget_GetRectY,
-    &_Widget_GetRectWidth,
-    &_Widget_GetRectHeight,
-    &_Widget_SetRect,
-    &_Widget_SetRectX,
-    &_Widget_SetRectY,
-    &_Widget_SetRectWidth,
-    &_Widget_SetRectHeight,
-    &_Widget_GetVisible,
-    &_Widget_SetVisible
+    // Object
+    &_object_free,
+    // Widget
+    &_widget_draw,
 };
 
-Widget *Widget_New(Context *context) {
-    Widget *this = calloc(1, sizeof(Widget));
-    this->vtbl = &_WidgetVtbl;
-    printf("0x%p = Widget_New()\n", this);
-    Widget_Init(this, context);
-    return this;
+#define widget_init(this, context) _widget_init((Widget *)(this), (Context *)(context))
+#define widget_ref(this) _object_ref((Object *)(this))
+#define widget_free(this) ((Widget *)(this))->vtbl->free((Object *)(this))
+#define widget_draw(this) ((Widget *)(this))->vtbl->draw((Widget *)(this))
+#define widget_get_context(this) _widget_get_context((Widget *)(this))
+#define widget_get_visible(this) _widget_get_visible((Widget *)(this))
+#define widget_set_visible(this, visible) _widget_set_visible((Widget *)(this), (visible))
+
+void _widget_init(Widget *this, Context * context) {
+    object_init(this);
+    this->context = context;
+    this->visible = true;
 }
 
-void _Widget_Init(Widget *this, Context *context) {
-    this->context = (context);
-}
-
-Context *_Widget_GetContext(Widget *this) {
+Context * _widget_get_context(Widget *this) {
     return this->context;
 }
 
-void _Widget_SetContext(Widget *this, Context *context) {
-    this->context = context;
-}
-
-Rect *_Widget_GetRect(Widget *this) {
-    return &this->rect;
-}
-
-int _Widget_GetRectX(Widget *this) {
-    return this->rect.x;
-}
-
-int _Widget_GetRectY(Widget *this) {
-    return this->rect.y;
-}
-
-int _Widget_GetRectWidth(Widget *this) {
-    return this->rect.width;
-}
-
-int _Widget_GetRectHeight(Widget *this) {
-    return this->rect.height;
-}
-
-void _Widget_SetRect(Widget *this, Rect *rect) {
-    this->rect = *rect;
-}
-
-void _Widget_SetRectX(Widget *this, int rectX) {
-    this->rect.x = rectX;
-}
-
-void _Widget_SetRectY(Widget *this, int rectY) {
-    this->rect.y = rectY;
-}
-
-void _Widget_SetRectWidth(Widget *this, int rectWidth) {
-    this->rect.width = rectWidth;
-}
-
-void _Widget_SetRectHeight(Widget *this, int rectHeight) {
-    this->rect.height = rectHeight;
-}
-
-bool _Widget_GetVisible(Widget *this) {
+bool _widget_get_visible(Widget *this) {
     return this->visible;
 }
 
-void _Widget_SetVisible(Widget *this, bool visible) {
+void _widget_set_visible(Widget *this, bool visible) {
     this->visible = visible;
 }
 
-void _Container_Init(Container *this, Context *context) {
-    _Widget_Init((Widget*)this, context);
-    this->children = List_New(8);
+Widget *widget_new(Context * context) {
+    Widget *this = malloc(sizeof(Widget));
+    this->vtbl = &_WidgetVtbl;
+    widget_init(this, context);
+    return this;
 }
 
-void _Container_Free(Container *this) {
-    if (this->children != NULL) List_Free(this->children);
-    _Object_Free((Object*)this);
+
+
+void _widget_draw(Widget *this) { (void)this; }
+
+// Container
+typedef struct Container Container;
+
+typedef struct ContainerVtbl {
+    // Container
+    void  (*free)(Container *this);
+    // Widget
+    void  (*draw)(Widget *this);
+} ContainerVtbl;
+
+struct Container {
+    ContainerVtbl *vtbl;
+    // Object
+    size_t refs;
+    // Widget
+    Context * context;
+    bool visible;
+    // Container
+    List * children;
+};
+
+void _container_init(Container *this, Context * context);
+void  _container_free(Container *this);
+void  _container_add(Container *this, Widget * widget);
+List * _container_get_children(Container *this);
+
+ContainerVtbl _ContainerVtbl = {
+    // Container
+    &_container_free,
+    // Widget
+    &_widget_draw,
+};
+
+#define container_init(this, context) _container_init((Container *)(this), (Context *)(context))
+#define container_ref(this) _object_ref((Object *)(this))
+#define container_free(this) ((Container *)(this))->vtbl->free((Container *)(this))
+#define container_draw(this) ((Container *)(this))->vtbl->draw((Widget *)(this))
+#define container_get_context(this) _widget_get_context((Widget *)(this))
+#define container_get_visible(this) _widget_get_visible((Widget *)(this))
+#define container_set_visible(this, visible) _widget_set_visible((Widget *)(this), (visible))
+#define container_add(this, widget) _container_add((Container *)(this), (Widget *)(widget))
+#define container_get_children(this) _container_get_children((Container *)(this))
+
+void _container_init(Container *this, Context * context) {
+    widget_init(this, context);
+    this->children = list_new();
 }
 
-List *_Container_GetChildren(Container *this) {
+void _container_free(Container *this) {
+    list_free(this->children);
+    _object_free((Object *)this);
+}
+
+List * _container_get_children(Container *this) {
     return this->children;
 }
 
-Object *_Container_ChildrenGet(Container *this, uint32_t index) {
-    return List_Get(this->children, index);
-}
-
-void _Container_ChildrenSet(Container *this, uint32_t index, Object *item) {
-    List_Set(this->children, index, item);
-}
-
-void _Container_ChildrenAdd(Container *this, Object *item) {
-    List_Add(this->children, item);
-}
-
-void _Container_ChildrenInsert(Container *this, uint32_t index, Object *item) {
-    List_Insert(this->children, index, item);
-}
-
-void _Container_ChildrenRemove(Container *this, uint32_t index) {
-    List_Remove(this->children, index);
-}
-
-uint32_t _Container_ChildrenGetCapacity(Container *this) {
-    return List_GetCapacity(this->children);
-}
-
-uint32_t _Container_ChildrenGetSize(Container *this) {
-    return List_GetSize(this->children);
-}
-
-void _Box_Init(Box *this, Context *context, Orientation orientation);
-Orientation _Box_GetOrientation(Box *this);
-void _Box_SetOrientation(Box *this, Orientation orientation);
-
-BoxVtbl _BoxVtbl = {
-    &_Box_Init,
-    &_Container_Free,
-    &_Widget_GetContext,
-    &_Widget_SetContext,
-    &_Widget_GetRect,
-    &_Widget_GetRectX,
-    &_Widget_GetRectY,
-    &_Widget_GetRectWidth,
-    &_Widget_GetRectHeight,
-    &_Widget_SetRect,
-    &_Widget_SetRectX,
-    &_Widget_SetRectY,
-    &_Widget_SetRectWidth,
-    &_Widget_SetRectHeight,
-    &_Widget_GetVisible,
-    &_Widget_SetVisible,
-    &_Container_GetChildren,
-    &_Container_ChildrenGet,
-    &_Container_ChildrenSet,
-    &_Container_ChildrenAdd,
-    &_Container_ChildrenInsert,
-    &_Container_ChildrenRemove,
-    &_Container_ChildrenGetCapacity,
-    &_Container_ChildrenGetSize,
-    &_Box_GetOrientation,
-    &_Box_SetOrientation
-};
-
-Box *Box_New(Context *context, Orientation orientation) {
-    Box *this = calloc(1, sizeof(Box));
-    this->vtbl = &_BoxVtbl;
-    printf("0x%p = Box_New()\n", this);
-    Box_Init(this, context, orientation);
+Container *container_new(Context * context) {
+    Container *this = malloc(sizeof(Container));
+    this->vtbl = &_ContainerVtbl;
+    container_init(this, context);
     return this;
 }
 
-void _Box_Init(Box *this, Context *context, Orientation orientation) {
-    _Container_Init((Container*)this, context);
-    this->orientation = (orientation);
-}
 
-Orientation _Box_GetOrientation(Box *this) {
-    return this->orientation;
-}
 
-void _Box_SetOrientation(Box *this, Orientation orientation) {
+void _container_add(Container *this, Widget *widget) { list_add(this->children, widget); }
+
+// Orientation
+typedef enum Orientation { ORIENTATION_HORIZONTAL, ORIENTATION_VERTICAL } Orientation;
+
+// Box
+typedef struct Box Box;
+
+typedef struct BoxVtbl {
+    // Box
+    void  (*free)(Box *this);
+    // Widget
+    void  (*draw)(Widget *this);
+} BoxVtbl;
+
+struct Box {
+    BoxVtbl *vtbl;
+    // Object
+    size_t refs;
+    // Widget
+    Context * context;
+    bool visible;
+    // Container
+    List * children;
+    // Box
+    Orientation orientation;
+};
+
+void _box_init(Box *this, Context * context, Orientation orientation);
+void  _box_free(Box *this);
+Orientation _box_get_orientation(Box *this);
+void _box_set_orientation(Box *this, Orientation orientation);
+
+BoxVtbl _BoxVtbl = {
+    // Box
+    &_box_free,
+    // Widget
+    &_widget_draw,
+};
+
+#define box_init(this, context, orientation) _box_init((Box *)(this), (Context *)(context), (orientation))
+#define box_ref(this) _object_ref((Object *)(this))
+#define box_free(this) ((Box *)(this))->vtbl->free((Box *)(this))
+#define box_draw(this) ((Box *)(this))->vtbl->draw((Widget *)(this))
+#define box_get_context(this) _widget_get_context((Widget *)(this))
+#define box_get_visible(this) _widget_get_visible((Widget *)(this))
+#define box_set_visible(this, visible) _widget_set_visible((Widget *)(this), (visible))
+#define box_add(this, widget) _container_add((Container *)(this), (Widget *)(widget))
+#define box_get_children(this) _container_get_children((Container *)(this))
+#define box_get_orientation(this) _box_get_orientation((Box *)(this))
+#define box_set_orientation(this, orientation) _box_set_orientation((Box *)(this), (orientation))
+
+void _box_init(Box *this, Context * context, Orientation orientation) {
+    container_init(this, context);
     this->orientation = orientation;
 }
 
-void _Label_Init(Label *this, Context *context, wchar_t *text);
-void _Label_Free(Label *this);
-wchar_t *_Label_GetText(Label *this);
-void _Label_SetText(Label *this, wchar_t *text);
+void _box_free(Box *this) {
+    _container_free((Container *)this);
+}
 
-LabelVtbl _LabelVtbl = {
-    &_Label_Init,
-    &_Label_Free,
-    &_Widget_GetContext,
-    &_Widget_SetContext,
-    &_Widget_GetRect,
-    &_Widget_GetRectX,
-    &_Widget_GetRectY,
-    &_Widget_GetRectWidth,
-    &_Widget_GetRectHeight,
-    &_Widget_SetRect,
-    &_Widget_SetRectX,
-    &_Widget_SetRectY,
-    &_Widget_SetRectWidth,
-    &_Widget_SetRectHeight,
-    &_Widget_GetVisible,
-    &_Widget_SetVisible,
-    &_Label_GetText,
-    &_Label_SetText
-};
+Orientation _box_get_orientation(Box *this) {
+    return this->orientation;
+}
 
-Label *Label_New(Context *context, wchar_t *text) {
-    Label *this = calloc(1, sizeof(Label));
-    this->vtbl = &_LabelVtbl;
-    printf("0x%p = Label_New()\n", this);
-    Label_Init(this, context, text);
+void _box_set_orientation(Box *this, Orientation orientation) {
+    this->orientation = orientation;
+}
+
+Box *box_new(Context * context, Orientation orientation) {
+    Box *this = malloc(sizeof(Box));
+    this->vtbl = &_BoxVtbl;
+    box_init(this, context, orientation);
     return this;
 }
 
-void _Label_Init(Label *this, Context *context, wchar_t *text) {
-    _Widget_Init((Widget*)this, context);
-    this->text = wcsdup(text);
+
+
+// Label
+typedef struct Label Label;
+
+typedef struct LabelVtbl {
+    // Label
+    void  (*free)(Label *this);
+    // Widget
+    void  (*draw)(Widget *this);
+} LabelVtbl;
+
+struct Label {
+    LabelVtbl *vtbl;
+    // Object
+    size_t refs;
+    // Widget
+    Context * context;
+    bool visible;
+    // Label
+    char * text;
+};
+
+void _label_init(Label *this, Context * context, char * text);
+void  _label_free(Label *this);
+char * _label_get_text(Label *this);
+void _label_set_text(Label *this, char * text);
+
+LabelVtbl _LabelVtbl = {
+    // Label
+    &_label_free,
+    // Widget
+    &_widget_draw,
+};
+
+#define label_init(this, context, text) _label_init((Label *)(this), (Context *)(context), (text))
+#define label_ref(this) _object_ref((Object *)(this))
+#define label_free(this) ((Label *)(this))->vtbl->free((Label *)(this))
+#define label_draw(this) ((Label *)(this))->vtbl->draw((Widget *)(this))
+#define label_get_context(this) _widget_get_context((Widget *)(this))
+#define label_get_visible(this) _widget_get_visible((Widget *)(this))
+#define label_set_visible(this, visible) _widget_set_visible((Widget *)(this), (visible))
+#define label_get_text(this) _label_get_text((Label *)(this))
+#define label_set_text(this, text) _label_set_text((Label *)(this), (text))
+
+void _label_init(Label *this, Context * context, char * text) {
+    widget_init(this, context);
+    this->text = strdup(text);
 }
 
-void _Label_Free(Label *this) {
-    if (this->text != NULL) free(this->text);
-    _Object_Free((Object*)this);
+void _label_free(Label *this) {
+    free(this->text);
+    _object_free((Object *)this);
 }
 
-wchar_t *_Label_GetText(Label *this) {
+char * _label_get_text(Label *this) {
     return this->text;
 }
 
-void _Label_SetText(Label *this, wchar_t *text) {
-    if (this->text != NULL) free(this->text);
-    this->text = wcsdup(text);
+void _label_set_text(Label *this, char * text) {
+    this->text = text;
 }
 
+Label *label_new(Context * context, char * text) {
+    Label *this = malloc(sizeof(Label));
+    this->vtbl = &_LabelVtbl;
+    label_init(this, context, text);
+    return this;
+}
+
+
+
+// Main
 int main(void) {
-    Context *context = Context_New();
+    Context *context = context_new();
 
-    Box *box = Box_New(context, ORIENTATION_VERTICAL);
-    Box_ChildrenAdd(box, OBJECT(Label_New(context, L"Line 1")));
-    Box_ChildrenAdd(box, OBJECT(Label_New(context, L"Line 2")));
-    Box_ChildrenAdd(box, OBJECT(Label_New(context, L"Line 3")));
-    Box_Free(box);
+    Box *box = box_new(context, ORIENTATION_VERTICAL);
+    box_add(box, label_new(context, "Line 1"));
+    box_add(box, label_new(context, "Line 2"));
+    box_add(box, label_new(context, "Line 3"));
+    box_free(box);
 
-    Context_Free(context);
-
+    context_free(context);
     return EXIT_SUCCESS;
 }

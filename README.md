@@ -1,17 +1,13 @@
-# BassieC: A object oriented extention of C
-*And simple transpiler that coverts an object oriented extention of C back to C code with nice codegen features*
+# CContinue Transpiler
+*A transpiler that translates an OOP-extension for the C programming language back to C*
 
-I created this thingy because I love the simplicity of the C programming language and I have a small to big distaste for C++. It is just a tool that allows you to write Object Oriented code in C without all the boilerplate of generating and syncing function pointer tables of init, free, getters and setters methods.
+I like C and I like C++, both are powerful languages in there own right. But C++ is quite complicated and sometimes I just want to create some classes with inheritance in my C project. So I've created the weird hacky Python transpiler that can translate a custom syntax inspired by C++ and Java back to C code.
 
-The transpiler is super basic and a single bad written Python script that uses regular expressions for the parsing of the code.
+## The syntax
+*The documentation is bad I know*
 
-This repo also contains the [Jan](jan/) experimental GUI library written in BassieC wich uses a lot of it unique codegen features to generate a lot of stub methods and other nice stuff, the main reason for the creation of BassieC was to create a nice object oriented GUI library easily.
-
-## Language description
-This needs a lot of work, i know...
-
-### Basic classes
-Create an class:
+### A basic class
+You can create a class with some fields with this syntax:
 ```
 class Person {
     char *name;
@@ -19,127 +15,74 @@ class Person {
 }
 ```
 
-Create an instance of that class:
+All classes are structs that inherit from the root `Object` class which is a ref counted heap allocated struct. A `new` and `free` method are automatically generated for you and you can use the fields just like a struct:
 ```
 int main(void) {
-    Person *person = new Person();
-    person->name = "BassieBAS";
-    person->age = 19;
-    Person_Free(person);
+    Person *person = person_new();
+    person->name = "Bastiaan";
+    person->age = 21;
+    person_free(person);
 }
 ```
 
-### Class field attributes
-Use field attributes to generate methods:
-```
-class Person {
-    @Prop @Init(strdup) @Free char *name;
-    @Prop int age;
-}
-```
-
-This is quite powerfull and does the same as this code:
+### Field attributes
+You can add attributes with the `@attribute` syntax before a class field to generated methods. This is usefull because it saves a lot of typing work, we can extend the `Person` class with the following attributes:
 ```
 class Person {
-    char *name;
-    int age;
-}
-
-void Person::Init(char *name, int age) {
-    this->name = strdup(name);
-    this->age = age;
-}
-
-char *Person::GetName() {
-    return this->name;
-}
-
-void Person::SetName(char *name) {
-    if (this->name != NULL) free(this->name);
-    this->name = strdup(name);
-}
-
-int Person::GetAge() {
-    return this->age;
-}
-
-void Person::SetAge(int age) {
-    this->age = age;
-}
-
-void Person::Free() {
-    if (this->name != NULL) free(this->name);
-    Object::Free(this); // <-- Super method call to previous class
+    @prop @init(strdup) @free char *name;
+    @prop int age;
 }
 ```
 
-The attributes that are implemented are for now and it arguments:
-- `@Get(type)` Generate a getter method for this field
-- `@Set(type)` Generate a setter method for this field
-- `@Prop(type)` A shortcut to generate a setter and a getter (same as `@Get` `@Set`)
-- `@Init(initFunction)` Use this field as an argument for the generated `Init` method
-- `@Free(freeFunction)` Free this field in the generated `Free` method
-- `@Extend(class)` For a class pointer as a field: generate wrapper functions for all methods of this class field
+This will inturn generated the following methods for us:
+```
+class Person {
+    // ...
+    void init(char *name, int32_t age);
+    virtual void free();
+    char * get_name();
+    int32_t get_age();
+    void set_age(int32_t age);
+}
+```
+
+You can use the following attributes:
+- `@get` Generate a getter method for this field
+- `@set` Generate a setter method for this field
+- `@prop` Short cut for `@get` and `@set`
+- `@init(init_function)` Use this field as an argument for the generated `init` method
+- `@free(free_function)` Free this field in the generated `free` method
 
 ### Class inheritance
-The last code is a super method call to previous class. All classe inherit from the base class called `Object` with the defination this is handy because now we can enforce that the first function in the vtbl always is the `Init` method and the second is always the `Free` method. We can also do some more generic stuff like that the build in [List](std/list.bc) class frees all its object when it is self freed:
-```
-abstract class Object {
-    void Init();
-    void Free();
-}
-
-void Object::Init() {}
-
-void Object::Free() {
-    free(this);
-}
-```
-
-Of course classes can inherit from other classes to reduce code, because all methods calls are using a single static function pointer table and so all methods are automaticly virtual and can changed by child classes. This system is inspired by the ABI of [Microsoft COM](https://en.wikipedia.org/wiki/Component_Object_Model):
+Classes can inherit from other classes with the `extends` keyword and classes can be made `abstract`:
 ```
 abstract class Animal {
-    @Prop @Init(strdup) @Free char *name;
-    void Greet();
+    @prop @init(strdup) @free char *name;
+    virtual void greet();
 }
 
 class Dog extends Animal {
-    void Greet();
+    void greet();
 }
-
-void Dog::Greet() {
+void Dog::greet() {
     printf("The dog %s greets you!\n", this->name);
 }
 
 class Cat extends Animal {
     void Greet();
 }
-
-void Cat::Greet() {
+void Cat::greet() {
     printf("The cat %s greets you!\n", this->name);
 }
 ```
 
-Because that every class instance has an pointer to a function pointer table of that class type we can use that to do dynamic checking of class types with the `instanceof` function:
-```
-int main(void) {
-    Cat *cat = new Cat();
-    Dog *dog = new Dog();
-    if (instanceof(cat, Animal)) printf("cat is an animal!\n");
-    if (instanceof(dog, Animal)) printf("dog is an animal!\n");
-    if (!instanceof(dog, Cat)) printf("dog is not an Cat!\n");
-}
-```
+See the code examples in [examples/](examples/) for more info
 
-### The transpiler options
-This needs a lot of work, so to learn more about the language compile some code and see the generated C code. With the `-d` option you can generate print statements when an new class is created an when freed. The transpiler will always create one header file and one C code file:
-```
-$ ./bc.py test.bc
-$ ls
-test.bc test.h test.c    # <-- The generated files
-```
+## TODO
+- Add support for separate code and header files
+- Add interfaces that work like Java interfaces or like Rust traits
 
 ## License
-Copyright (c) 2021 Bastiaan van der Plaat
+Copyright (c) 2021 - 2024 Bastiaan van der Plaat
 
 Licensed under the [MIT](LICENSE) license.

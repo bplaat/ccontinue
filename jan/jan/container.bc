@@ -1,3 +1,0 @@
-abstract class JanContainer extends JanWidget {
-    @Get @Extend(List) @Free(List_Free) List *children = new List(4);
-};
