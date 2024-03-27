@@ -10,7 +10,7 @@ I like C and I like C++, both are powerful languages in there own right. But C++
 You can create a class with some fields with this syntax:
 ```
 class Person {
-    char *name;
+    String *name;
     int age;
 }
 ```
@@ -29,7 +29,7 @@ int main(void) {
 You can add attributes with the `@attribute` syntax before a class field to generated methods. This is usefull because it saves a lot of typing work, we can extend the `Person` class with the following attributes:
 ```
 class Person {
-    @prop @init(strdup) @free char *name;
+    @prop @init @free String *name;
     @prop int age;
 }
 ```
@@ -38,9 +38,9 @@ This will inturn generated the following methods for us:
 ```
 class Person {
     // ...
-    void init(char *name, int32_t age);
+    void init(String *name, int32_t age);
     virtual void free();
-    char * get_name();
+    String * get_name();
     int32_t get_age();
     void set_age(int32_t age);
 }

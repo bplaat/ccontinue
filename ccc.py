@@ -51,6 +51,13 @@ void RcObject::free() {
 }
 """
 
+STRING_CLASS = """
+class String {
+    @get @init(strdup) @free char *str;
+    @get size_t size = strlen(str);
+}
+"""
+
 LIST_CLASS = """
 class List extends RcObject {
     Object **items;
@@ -128,6 +135,7 @@ PRELUDE = f"""// @generated
 
 {POLLY_FILLS}
 {OBJECT_CLASS}
+{STRING_CLASS}
 {LIST_CLASS}
 """
 
@@ -333,7 +341,12 @@ def convert_class(match: re.Match[str]) -> str:
                     if len(field.attributes["free"]) > 0:
                         g += f"    {field.attributes['free'][0]}(this->{field.name});\n"
                     else:
-                        g += f"    free(this->{field.name});\n"
+                        for other_class in classes.values():
+                            if field.type.startswith(other_class.name):
+                                g += f"    {other_class.snake_name}_free(this->{field.name});\n"
+                                break
+                        else:
+                            g += f"    free(this->{field.name});\n"
             class_with_free = find_class_for_method(classes[parent_class.name], "free")
             g += f"    _{class_with_free.snake_name}_free(({class_with_free.name} *)this);\n"
             g += "}\n\n"
