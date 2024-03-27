@@ -15,7 +15,7 @@ class Person {
 }
 ```
 
-All classes are structs that inherit from the root `Object` class which is a ref counted heap allocated struct. A `new` and `free` method are automatically generated for you and you can use the fields just like a struct:
+All classes are structs that inherit from the root `Object` class which is heap allocated. A `new` and `free` method are automatically generated for you and you can use the fields just like a struct:
 ```
 int main(void) {
     Person *person = person_new();
