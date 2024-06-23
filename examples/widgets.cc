@@ -1,5 +1,3 @@
-// Run: ../ccc.py widgets.cc && gcc --std=c11 -Wall -Wextra -Wpedantic -Werror widgets.c -o widgets.exe && ./widgets.exe
-
 // Context
 class Context {
 }
@@ -37,7 +35,7 @@ class Box extends Container {
 
 // Label
 class Label extends Widget {
-    @prop @init @free String *text;
+    @prop @init @free(string_free) String *text;
 }
 
 // Main

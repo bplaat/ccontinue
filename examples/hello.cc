@@ -1,8 +1,5 @@
-// Run: ../ccc.py hello.cc && gcc --std=c11 -Wall -Wextra -Wpedantic -Werror hello.c -o hello.exe && ./hello.exe
-
-// Person
 class Person {
-    @get @init @free String *name;
+    @get @init @free(string_free) String *name;
     @prop @init int32_t age;
 
     void greet();
@@ -12,7 +9,6 @@ void Person::greet() {
     printf("Hello %s, you are %d years old!\n", string_get_str(this->name), this->age);
 }
 
-// Main
 int main(void) {
     // Simple class instance
     Person *bastiaan = person_new(string_new("Bastiaan"), 21);

@@ -7,15 +7,15 @@ I like C and I like C++, both are powerful languages in there own right. But C++
 *The documentation is bad I know*
 
 ### A basic class
-You can create a class with some fields with this syntax:
+You can create a class with some fields with the following syntax:
 ```
 class Person {
-    String *name;
+    char *name;
     int age;
 }
 ```
 
-All classes are structs that inherit from the root `Object` class which is heap allocated. A `new` and `free` method are automatically generated for you and you can use the fields just like a struct:
+All classes are structs that inherit from the root `Object` class which is heap allocated and ref counted. A `new`, `ref` and `free` method are automatically generated for you and you can use the fields just like a struct:
 ```
 int main(void) {
     Person *person = person_new();
@@ -26,11 +26,11 @@ int main(void) {
 ```
 
 ### Field attributes
-You can add attributes with the `@attribute` syntax before a class field to generated methods. This is usefull because it saves a lot of typing work, we can extend the `Person` class with the following attributes:
+You can add attributes with the `@attribute` syntax before a class field to generated methods automatically. This is useful because it saves a lot of typing work, we can extend the `Person` class with the following attributes:
 ```
 class Person {
-    @prop @init @free String *name;
-    @prop int age;
+    @get @init @free(string_free) String *name;
+    @prop @init int age;
 }
 ```
 
@@ -39,6 +39,7 @@ This will inturn generated the following methods for us:
 class Person {
     // ...
     void init(String *name, int32_t age);
+    virtual Person *ref();
     virtual void free();
     String * get_name();
     int32_t get_age();
@@ -80,7 +81,7 @@ See the code examples in [examples/](examples/) for more info
 
 ## TODO
 - Add support for separate code and header files
-- Add interfaces that work like Java interfaces or like Rust traits
+- Add interfaces that work like Java interfaces and like Rust traits
 
 ## License
 Copyright (c) 2021 - 2024 Bastiaan van der Plaat

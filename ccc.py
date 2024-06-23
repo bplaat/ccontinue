@@ -1,13 +1,16 @@
 #!/usr/bin/env python3
-""" CContinue Compiler / Transpiler v0.1.0
+""" CContinue Transpiler v0.1.0
 """
 
+import argparse
 import copy
 from dataclasses import dataclass
 import logging
-from typing import Dict, List, Optional
+import os
+import platform
 import re
 import sys
+from typing import Dict, List, Optional
 
 POLLY_FILLS = """
 char *strdup(const char *s) {
@@ -20,7 +23,10 @@ char *strdup(const char *s) {
 OBJECT_CLASS = """
 // Object
 class Object {
+    size_t refs = 1;
+
     void init();
+    virtual Object *ref();
     virtual void free();
 }
 
@@ -28,26 +34,14 @@ void Object::init() {
     (void)this;
 }
 
-void Object::free() {
-    free(this);
-}
-
-// Ref Counted Object
-class RcObject {
-    size_t refs = 1;
-
-    virtual RcObject *ref();
-    virtual void free();
-}
-
-RcObject *RcObject::ref() {
+Object *Object::ref() {
     this->refs++;
     return this;
 }
 
-void RcObject::free() {
+void Object::free() {
     if (--this->refs == 0)
-        _object_free((Object *)this);
+        free(this);
 }
 """
 
@@ -59,7 +53,7 @@ class String {
 """
 
 LIST_CLASS = """
-class List extends RcObject {
+class List extends Object {
     Object **items;
     @get size_t capacity = 8;
     @get size_t size = 0;
@@ -74,7 +68,7 @@ class List extends RcObject {
 }
 
 void List::init() {
-    rc_object_init(this);
+    object_init(this);
     this->items = malloc(sizeof(Object *) * this->capacity);
 }
 
@@ -82,7 +76,7 @@ void List::free() {
     for (size_t i = 0; i < this->size; i++)
         object_free(this->items[i]);
     free(this->items);
-    _rc_object_free((RcObject *)this);
+    _object_free((Object *)this);
 }
 
 Object *List::get(size_t index) {
@@ -206,9 +200,7 @@ def find_class_for_method(class_: Class, method_name: str) -> Class:
 def to_snake_case(camel_case: str) -> str:
     """Camel case to snake case"""
     string = "".join(["_" + char.lower() if char.isupper() else char for char in camel_case])
-    if string.startswith("_"):
-        string = string[1:]
-    return string
+    return string[1:] if string.startswith("_") else string
 
 
 def convert_class(match: re.Match[str]) -> str:
@@ -522,12 +514,41 @@ def compile_code(code: str) -> str:
 
 
 if __name__ == "__main__":
-    if len(sys.argv) > 1:
-        logging.basicConfig(level=logging.INFO, format="[%(levelname)s] %(message)s")
-        with open(sys.argv[1], "r", encoding="utf-8") as file:
-            text = file.read()
-            with open(sys.argv[1].replace(".cc", ".c"), "w", encoding="utf-8") as file:
-                file.write(compile_code(PRELUDE) + compile_code(text))
-    else:
-        print("CContinue Compiler")
-        print("Usage: ./ccc.py path/to/file.cc")
+    logging.basicConfig(level=logging.INFO, format="[%(levelname)s] %(message)s")
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("file", help="C Continue file to compile")
+    parser.add_argument("--output", "-o", help="Output file", required=False)
+    parser.add_argument("--only-transpile", help="Don't compile output with gcc", action="store_true")
+    parser.add_argument("--run", help="Run the compiled binary", action="store_true")
+    parser.add_argument("--run-leaks", help="Run the compiled binary with memory leak checks", action="store_true")
+    args = parser.parse_args()
+
+    file = open(args.file, "r", encoding="utf-8")  # pylint: disable=consider-using-with
+    text = file.read()
+    file.close()
+
+    c_path = args.file.replace(".cc", ".c")
+    file = open(c_path, "w", encoding="utf-8")  # pylint: disable=consider-using-with
+    file.write(compile_code(PRELUDE) + compile_code(text))
+    file.close()
+
+    if not args.only_transpile:
+        output_path = (
+            args.output
+            if args.output is not None
+            else args.file.replace(".cc", ".exe" if platform.system() == "Windows" else "")
+        )
+        os.system(f"gcc --std=c11 -Wall -Wextra -Wpedantic -Werror {c_path} -o {output_path}")
+
+        if args.run:
+            os.system(f"./{output_path}")
+
+        if args.run_leaks:
+            if platform.system() == "Darwin":
+                os.system(f"leaks --atExit -- ./{output_path}")
+            elif platform.system() == "Linux":
+                os.system(f"valgrind --leak-check=full --show-leak-kinds=all --track-origins=yes ./{output_path}")
+            else:
+                logging.error("Memory leak checks are not supported on this platform")
+                sys.exit(1)

@@ -1,8 +1,6 @@
-// Run: ../ccc.py catdog.cc && gcc --std=c11 -Wall -Wextra -Wpedantic -Werror catdog.c -o catdog.exe && ./catdog.exe
-
 // Animal
 abstract class Animal {
-    @get @init @free String *name;
+    @get @init @free(string_free) String *name;
     virtual void jump();
 }
 
