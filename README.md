@@ -83,9 +83,7 @@ void Cat::greet() {
 ```
 
 ## TODO
-- Add support for separate code and header files
 - Add interfaces that work like Java interfaces
-- A way for static class initialization
 
 ## License
 Copyright (c) 2021 - 2024 Bastiaan van der Plaat

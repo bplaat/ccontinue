@@ -1,3 +1,5 @@
+#include <List.hh>
+
 // Animal
 class Animal {
     @get @init(strdup) @free(free) char* name;

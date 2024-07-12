@@ -1,3 +1,5 @@
+#include <List.hh>
+
 class Person {
     @get @init(strdup) @free(free) char* name;
     @prop @init int32_t age;

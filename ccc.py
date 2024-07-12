@@ -9,121 +9,10 @@ import logging
 import os
 import platform
 import re
+import subprocess
 import sys
+import tempfile
 from typing import Dict, List, Optional
-
-POLLY_FILLS = """
-char* strdup(const char* s) {
-    char* n = malloc(strlen(s) + 1);
-    strcpy(n, s);
-    return n;
-}
-"""
-
-OBJECT_CLASS = """
-// Object
-class Object {
-    size_t refs = 1;
-
-    void init();
-    virtual Object* ref();
-    virtual void free();
-};
-
-void Object::init() {
-    (void)this;
-}
-
-Object* Object::ref() {
-    this->refs++;
-    return this;
-}
-
-void Object::free() {
-    if (--this->refs == 0)
-        free(this);
-}
-"""
-
-LIST_CLASS = """
-class List : Object {
-    Object** items;
-    @get size_t capacity = 8;
-    @get size_t size = 0;
-
-    void init();
-    virtual void free();
-    Object* get(size_t index);
-    void set(size_t index, Object* item);
-    void add(Object* item);
-    void insert(size_t index, Object* item);
-    void remove(size_t index);
-};
-
-void List::init() {
-    object_init(this);
-    this->items = malloc(sizeof(Object*) * this->capacity);
-}
-
-void List::free() {
-    for (size_t i = 0; i < this->size; i++)
-        object_free(this->items[i]);
-    free(this->items);
-    _object_free((Object*)this);
-}
-
-Object* List::get(size_t index) {
-    return this->items[index];
-}
-
-void List::set(size_t index, Object* item) {
-    if (index > this->capacity) {
-        while (index > this->capacity)
-            this->capacity *= 2;
-        this->items = realloc(this->items, sizeof(Object*) * this->capacity);
-    }
-    while (this->size <= index)
-        this->items[this->size++] = NULL;
-    this->items[index] = item;
-}
-
-void List::add(Object* item) {
-    if (this->size == this->capacity) {
-        this->capacity *= 2;
-        this->items = realloc(this->items, sizeof(Object*) * this->capacity);
-    }
-    this->items[this->size++] = item;
-}
-
-void List::insert(size_t index, Object* item) {
-    if (this->size == this->capacity) {
-        this->capacity *= 2;
-        this->items = realloc(this->items, sizeof(Object*) * this->capacity);
-    }
-    for (size_t i = this->size - 1; i >= index; i--)
-        this->items[i + 1] = this->items[i];
-    this->size++;
-    this->items[index] = item;
-}
-
-void List::remove(size_t index) {
-    for (size_t i = index; i < this->size; i++)
-        this->items[i] = this->items[i + 1];
-    this->size--;
-}
-"""
-
-PRELUDE = f"""// @generated
-#include <stdbool.h>
-#include <stdint.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-
-{POLLY_FILLS}
-{OBJECT_CLASS}
-{LIST_CLASS}
-"""
 
 
 @dataclass
@@ -176,7 +65,36 @@ class Class:
         self.methods = {}
 
 
+PRELUDE = """// @generated
+#include <stdbool.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+"""
+C_FLAGS = ["--std=c11", "-Wall", "-Wextra", "-Wpedantic", "-Werror"]
+
+cc = os.environ["CC"] if "CC" in os.environ else "gcc"
+include_paths: List[str] = []
 classes: Dict[str, Class] = {}
+
+
+def file_read(path: str) -> str:
+    """Read file"""
+    with open(path, "r", encoding="utf-8") as file:
+        return file.read()
+
+
+def file_write(path: str, text: str) -> None:
+    """Write file"""
+    with open(path, "w", encoding="utf-8") as file:
+        file.write(text)
+
+
+def to_snake_case(camel_case: str) -> str:
+    """Camel case to snake case"""
+    string = "".join(["_" + char.lower() if char.isupper() else char for char in camel_case])
+    return string[1:] if string.startswith("_") else string
 
 
 def find_class_for_method(class_: Class, method_name: str) -> Class:
@@ -189,278 +107,307 @@ def find_class_for_method(class_: Class, method_name: str) -> Class:
     return find_class_for_method(classes[class_.parent_name], method_name)
 
 
-def to_snake_case(camel_case: str) -> str:
-    """Camel case to snake case"""
-    string = "".join(["_" + char.lower() if char.isupper() else char for char in camel_case])
-    return string[1:] if string.startswith("_") else string
+class ConvertInclude:
+    """Convert class"""
 
+    def __init__(self, current_path: str) -> None:
+        self.current_path = current_path
 
-def convert_class(match: re.Match[str]) -> str:
-    """Convert class define"""
-
-    # ==== Indexing ====
-    class_name, extends_str, contents = match.groups()
-
-    # Get parent class
-    parent_name = None if class_name == "Object" else "Object"
-    if extends_str is not None:
-        parent_name = extends_str[1:].strip()
-
-    parent_class = None
-    if parent_name is not None:
-        if parent_name not in classes:
-            logging.error("Can't find class: %s", class_name)
-            sys.exit(1)
-        parent_class = classes[parent_name]
-
-    # Create class object
-    class_ = Class(class_name, parent_name)
-    if parent_class is not None:
-        class_.fields = copy.deepcopy(parent_class.fields)
-        class_.methods = copy.deepcopy(parent_class.methods)
-    classes[class_.name] = class_
-
-    # Index fields
-    for field_parts in re.findall(r"(.+[^=][\s|\*])([_A-Za-z][_A-Za-z0-9]*)\s*(=\s*[^;]+)?;", contents):
-        attributes_and_type_str, name, default_str = field_parts
-
-        # Parse attributes
-        attributes = {}
-
-        def convert_attribute(match: re.Match[str]) -> str:
-            name, arguments = match.groups()
-            if arguments is not None:
-                attributes[name] = [  # pylint: disable=cell-var-from-loop
-                    argument.strip() for argument in arguments[1 : len(arguments) - 1].split(",")
-                ]
-            else:
-                attributes[name] = []  # pylint: disable=cell-var-from-loop
-            return ""
-
-        field_type = re.sub(
-            r"@([_A-Za-z][_A-Za-z0-9]*)(\([^\)]*\))?",
-            convert_attribute,
-            attributes_and_type_str,
-        ).strip()
-
-        # Add field to class
-        if name in class_.fields:
-            logging.error("Can't inherit field: %s", name)
-            sys.exit(1)
-        class_.fields[name] = Field(
-            name, field_type, default_str[1:].strip() if default_str != "" else None, attributes, class_.name
-        )
-
-    # Index methods
-    for method_parts in re.findall(
-        r"([_A-Za-z][_A-Za-z0-9 ]*[\**|\s+])\s*([_A-Za-z][_A-Za-z0-9]*)\(([^\)]*)\)\s*(=\s*0)?;",
-        contents,
-    ):
-        return_type, name, arguments_str, is_zero = method_parts
-
-        arguments = []
-        if arguments_str != "":
-            for argument_str in arguments_str.split(","):
-                argument_parts = re.search(
-                    r"([_A-Za-z][_A-Za-z0-9 ]*[\**|\s+])\s*([_A-Za-z][_A-Za-z0-9]*)",
-                    argument_str,
+    def __call__(self, match: re.Match[str]) -> str:
+        """Convert include"""
+        base_path = f"{match.groups()[0]}.hh"
+        for include_path in include_paths:
+            complete_path = f"{include_path}/{base_path}"
+            if os.path.exists(complete_path):
+                is_header = base_path.endswith(".hh") and os.path.abspath(complete_path) != os.path.abspath(
+                    self.current_path.replace(".cc", ".hh")
                 )
-                if argument_parts is not None:
-                    arguments.append(Argument(argument_parts[2].strip(), argument_parts[1]))
+                return transpile_text(complete_path, is_header, file_read(complete_path))
+        logging.error("Can't find include: %s", base_path)
+        sys.exit(1)
 
-        is_virtual = False
-        if "virtual " in return_type:
-            return_type = return_type.replace("virtual ", "")
-            is_virtual = True
 
-        if is_zero != "":
-            if is_virtual:
-                class_.is_abstract = True
-            else:
-                logging.error("Only virtual methods can be set to zero: %s", name)
+class ConvertClass:
+    """Convert class"""
+
+    def __init__(self, is_header: bool) -> None:
+        self.is_header = is_header
+
+    def __call__(self, match: re.Match[str]) -> str:
+        # ==== Indexing ====
+        class_name, extends_str, contents = match.groups()
+
+        # Get parent class
+        parent_name = None if class_name == "Object" else "Object"
+        if extends_str is not None:
+            parent_name = extends_str[1:].strip()
+
+        parent_class = None
+        if parent_name is not None:
+            if parent_name not in classes:
+                logging.error("Can't find parent class %s for %s", parent_name, class_name)
                 sys.exit(1)
+            parent_class = classes[parent_name]
 
-        if name in class_.methods:
-            class_.methods[name].class_ = class_.name
-        else:
-            class_.methods[name] = Method(name, return_type, is_virtual, arguments, class_.name, class_.name)
+        # Create class object
+        class_ = Class(class_name, parent_name)
+        if parent_class is not None:
+            class_.fields = copy.deepcopy(parent_class.fields)
+            class_.methods = copy.deepcopy(parent_class.methods)
+        classes[class_.name] = class_
 
-    # ==== Generate missing methods ====
-    g = ""
-    if parent_class is not None:
-        # Init method
-        field_needs_init = next(
-            (field for field in class_.fields.values() if "init" in field.attributes or field.default is not None), None
-        )
-        if class_.methods["init"].class_ != class_.name and field_needs_init is not None:
-            class_.methods["init"].class_ = class_.name
-            class_.methods["init"].arguments = [
-                Argument(field.name, field.type) for field in class_.fields.values() if "init" in field.attributes
-            ]
+        # Index fields
+        for field_parts in re.findall(r"(.+[^=][\s|\*])([_A-Za-z][_A-Za-z0-9]*)\s*(=\s*[^;]+)?;", contents):
+            attributes_and_type_str, name, default_str = field_parts
 
-            init_method = class_.methods["init"]
-            parent_init_method = classes[parent_class.name].methods["init"]
+            # Parse attributes
+            attributes = {}
 
-            g += f"void _{class_.snake_name}_init("
-            g += ", ".join(
-                [f"{class_.name}* this"] + [f"{argument.type} {argument.name}" for argument in init_method.arguments]
+            def convert_attribute(match: re.Match[str]) -> str:
+                name, arguments = match.groups()
+                if arguments is not None:
+                    attributes[name] = [  # pylint: disable=cell-var-from-loop
+                        argument.strip() for argument in arguments[1 : len(arguments) - 1].split(",")
+                    ]
+                else:
+                    attributes[name] = []  # pylint: disable=cell-var-from-loop
+                return ""
+
+            field_type = re.sub(
+                r"@([_A-Za-z][_A-Za-z0-9]*)(\([^\)]*\))?",
+                convert_attribute,
+                attributes_and_type_str,
+            ).strip()
+
+            # Add field to class
+            if name in class_.fields:
+                logging.error("Can't inherit field: %s", name)
+                sys.exit(1)
+            class_.fields[name] = Field(
+                name, field_type, default_str[1:].strip() if default_str != "" else None, attributes, class_.name
             )
-            g += ") {\n"
-            g += f"    {parent_class.snake_name}_init("
-            g += ", ".join(["this"] + [argument.name for argument in parent_init_method.arguments])
-            g += ");\n"
-            for field in class_.fields.values():
-                if field.class_ == class_.name:
-                    if field.default is not None:
-                        g += f"    this->{field.name} = {field.default};\n"
-                    if "init" in field.attributes:
-                        if len(field.attributes["init"]) > 0:
-                            g += f"    this->{field.name} = {field.attributes['init'][0]}({field.name});\n"
-                        else:
-                            g += f"    this->{field.name} = {field.name};\n"
-            g += "}\n\n"
 
-        # Free method
-        field_needs_free = next((field for field in class_.fields.values() if "free" in field.attributes), None)
-        if class_.methods["free"].class_ != class_.name and field_needs_free is not None:
-            class_.methods["free"].class_ = class_.name
+        # Index methods
+        for method_parts in re.findall(
+            r"([_A-Za-z][_A-Za-z0-9 ]*[\**|\s+])\s*([_A-Za-z][_A-Za-z0-9]*)\(([^\)]*)\)\s*(=\s*0)?;",
+            contents,
+        ):
+            return_type, name, arguments_str, is_zero = method_parts
 
-            g += f"void _{class_.snake_name}_free({class_.name}* this) {{\n"
-            for field in class_.fields.values():
-                if field.class_ == class_.name and "free" in field.attributes:
-                    if len(field.attributes["free"]) > 0:
-                        g += f"    {field.attributes['free'][0]}(this->{field.name});\n"
-                    else:
-                        for other_class in classes.values():
-                            if field.type.startswith(other_class.name):
-                                g += f"    {other_class.snake_name}_free(this->{field.name});\n"
-                                break
-                        else:
-                            g += f"    free(this->{field.name});\n"
-            class_with_free = find_class_for_method(classes[parent_class.name], "free")
-            g += f"    _{class_with_free.snake_name}_free(({class_with_free.name}*)this);\n"
-            g += "}\n\n"
+            arguments = []
+            if arguments_str != "":
+                for argument_str in arguments_str.split(","):
+                    argument_parts = re.search(
+                        r"([_A-Za-z][_A-Za-z0-9 ]*[\**|\s+])\s*([_A-Za-z][_A-Za-z0-9]*)",
+                        argument_str,
+                    )
+                    if argument_parts is not None:
+                        arguments.append(Argument(argument_parts[2].strip(), argument_parts[1]))
 
-        # Get attribute
-        for field in class_.fields.values():
-            if field.class_ == class_.name and ("get" in field.attributes or "prop" in field.attributes):
-                method_name = f"get_{field.name}"
-                class_.methods[method_name] = Method(method_name, field.type, False, [], class_.name, class_.name)
+            is_virtual = False
+            if "virtual " in return_type:
+                return_type = return_type.replace("virtual ", "")
+                is_virtual = True
 
-                g += f"{field.type} _{class_.snake_name}_get_{field.name}({class_.name}* this) {{\n"
-                g += f"    return this->{field.name};\n"
-                g += "}\n\n"
+            if is_zero != "":
+                if is_virtual:
+                    class_.is_abstract = True
+                else:
+                    logging.error("Only virtual methods can be set to zero: %s", name)
+                    sys.exit(1)
 
-        # Set attribute
-        for field in class_.fields.values():
-            if field.class_ == class_.name and ("set" in field.attributes or "prop" in field.attributes):
-                method_name = f"set_{field.name}"
-                class_.methods[method_name] = Method(
-                    method_name, "void", False, [Argument(field.name, field.type)], class_.name, class_.name
-                )
-
-                g += f"void _{class_.snake_name}_set_{field.name}({class_.name}* this, "
-                g += f"{field.type} {field.name}) {{\n"
-                g += f"    this->{field.name} = {field.name};\n"
-                g += "}\n\n"
-
-        # New method
-        if not class_.is_abstract:
-            init_method = class_.methods["init"]
-            g += f"{class_.name}* {class_.snake_name}_new("
-            if len(init_method.arguments) > 0:
-                g += ", ".join([f"{argument.type} {argument.name}" for argument in init_method.arguments])
+            if name in class_.methods:
+                class_.methods[name].class_ = class_.name
             else:
-                g += "void"
-            g += (
-                ") {\n"
-                + f"    {class_.name}* this = malloc(sizeof({class_.name}));\n"
-                + f"    this->vtbl = &_{class_.name}Vtbl;\n"
-                + f"    {class_.snake_name}_init("
-                + ", ".join(["this"] + [argument.name for argument in init_method.arguments])
-                + ");\n"
-                + "    return this;\n"
-                + "}\n\n"
+                class_.methods[name] = Method(name, return_type, is_virtual, arguments, class_.name, class_.name)
+
+        # ==== Generate missing methods ====
+        g = ""
+        if parent_class is not None:
+            # Init method
+            field_needs_init = next(
+                (field for field in class_.fields.values() if "init" in field.attributes or field.default is not None),
+                None,
             )
+            if class_.methods["init"].class_ != class_.name and field_needs_init is not None:
+                class_.methods["init"].class_ = class_.name
+                class_.methods["init"].arguments = [
+                    Argument(field.name, field.type) for field in class_.fields.values() if "init" in field.attributes
+                ]
 
-    # ==== Codegen ====
+                init_method = class_.methods["init"]
+                parent_init_method = classes[parent_class.name].methods["init"]
 
-    # Class Vtbl struct
-    c = f"typedef struct {class_.name} {class_.name};\n\n"
-    c += f"typedef struct {class_.name}Vtbl {{\n"
-    current_class_name = ""
-    for method in class_.methods.values():
-        if method.is_virtual:
-            if method.origin_class != current_class_name:
-                c += f"    // {method.origin_class}\n"
-                current_class_name = method.origin_class
-            c += f"    {method.return_type} (*{method.name})("
-            c += ", ".join(
-                [f"{method.class_}* this"] + [f"{argument.type} {argument.name}" for argument in method.arguments]
-            )
-            c += ");\n"
-
-    c += f"}} {class_.name}Vtbl;\n\n"
-
-    # Class struct
-    c += f"struct {class_.name} {{\n"
-    c += f"    {class_.name}Vtbl* vtbl;\n"
-    current_class_name = ""
-    for field in class_.fields.values():
-        if field.class_ != current_class_name:
-            c += f"    // {field.class_}\n"
-            current_class_name = field.class_
-        c += f"    {field.type} {field.name};\n"
-    c += "};\n\n"
-
-    # Class method forward defines
-    for method in class_.methods.values():
-        if method.class_ == class_.name:
-            c += (
-                f"{method.return_type} _{class_.snake_name}_{method.name}("
-                + ", ".join(
-                    [f"{class_.name}* this"] + [f"{argument.type} {argument.name}" for argument in method.arguments]
+                g += f"void _{class_.snake_name}_init("
+                g += ", ".join(
+                    [f"{class_.name}* this"]
+                    + [f"{argument.type} {argument.name}" for argument in init_method.arguments]
                 )
-                + ");\n"
-            )
-    c += "\n"
+                g += ") {\n"
+                g += f"    {parent_class.snake_name}_init("
+                g += ", ".join(["this"] + [argument.name for argument in parent_init_method.arguments])
+                g += ");\n"
+                for field in class_.fields.values():
+                    if field.class_ == class_.name:
+                        if field.default is not None:
+                            g += f"    this->{field.name} = {field.default};\n"
+                        if "init" in field.attributes:
+                            if len(field.attributes["init"]) > 0:
+                                g += f"    this->{field.name} = {field.attributes['init'][0]}({field.name});\n"
+                            else:
+                                g += f"    this->{field.name} = {field.name};\n"
+                g += "}\n\n"
 
-    # Class Vtbl instance
-    if not class_.is_abstract:
-        c += f"{class_.name}Vtbl _{class_.name}Vtbl = {{\n"
+            # Free method
+            field_needs_free = next((field for field in class_.fields.values() if "free" in field.attributes), None)
+            if class_.methods["free"].class_ != class_.name and field_needs_free is not None:
+                class_.methods["free"].class_ = class_.name
+
+                g += f"void _{class_.snake_name}_free({class_.name}* this) {{\n"
+                for field in class_.fields.values():
+                    if field.class_ == class_.name and "free" in field.attributes:
+                        if len(field.attributes["free"]) > 0:
+                            g += f"    {field.attributes['free'][0]}(this->{field.name});\n"
+                        else:
+                            for other_class in classes.values():
+                                if field.type.startswith(other_class.name):
+                                    g += f"    {other_class.snake_name}_free(this->{field.name});\n"
+                                    break
+                            else:
+                                g += f"    free(this->{field.name});\n"
+                class_with_free = find_class_for_method(classes[parent_class.name], "free")
+                g += f"    _{class_with_free.snake_name}_free(({class_with_free.name}*)this);\n"
+                g += "}\n\n"
+
+            # Get attribute
+            for field in class_.fields.values():
+                if field.class_ == class_.name and ("get" in field.attributes or "prop" in field.attributes):
+                    method_name = f"get_{field.name}"
+                    class_.methods[method_name] = Method(method_name, field.type, False, [], class_.name, class_.name)
+
+                    g += f"{field.type} _{class_.snake_name}_get_{field.name}({class_.name}* this) {{\n"
+                    g += f"    return this->{field.name};\n"
+                    g += "}\n\n"
+
+            # Set attribute
+            for field in class_.fields.values():
+                if field.class_ == class_.name and ("set" in field.attributes or "prop" in field.attributes):
+                    method_name = f"set_{field.name}"
+                    class_.methods[method_name] = Method(
+                        method_name, "void", False, [Argument(field.name, field.type)], class_.name, class_.name
+                    )
+
+                    g += f"void _{class_.snake_name}_set_{field.name}({class_.name}* this, "
+                    g += f"{field.type} {field.name}) {{\n"
+                    g += f"    this->{field.name} = {field.name};\n"
+                    g += "}\n\n"
+
+            # New method
+            if not class_.is_abstract:
+                init_method = class_.methods["init"]
+                g += f"{class_.name}* {class_.snake_name}_new("
+                if len(init_method.arguments) > 0:
+                    g += ", ".join([f"{argument.type} {argument.name}" for argument in init_method.arguments])
+                else:
+                    g += "void"
+                g += (
+                    ") {\n"
+                    + f"    {class_.name}* this = malloc(sizeof({class_.name}));\n"
+                    + f"    this->vtbl = &_{class_.name}Vtbl;\n"
+                    + f"    {class_.snake_name}_init("
+                    + ", ".join(["this"] + [argument.name for argument in init_method.arguments])
+                    + ");\n"
+                    + "    return this;\n"
+                    + "}\n\n"
+                )
+
+        # ==== Codegen ====
+
+        # Class Vtbl struct
+        c = f"typedef struct {class_.name} {class_.name};\n\n"
+        c += f"typedef struct {class_.name}Vtbl {{\n"
         current_class_name = ""
         for method in class_.methods.values():
             if method.is_virtual:
                 if method.origin_class != current_class_name:
                     c += f"    // {method.origin_class}\n"
                     current_class_name = method.origin_class
-                c += f"    &_{to_snake_case(method.class_)}_{method.name},\n"
+                c += f"    {method.return_type} (*{method.name})("
+                c += ", ".join(
+                    [f"{method.class_}* this"] + [f"{argument.type} {argument.name}" for argument in method.arguments]
+                )
+                c += ");\n"
+
+        c += f"}} {class_.name}Vtbl;\n\n"
+
+        # Class struct
+        c += f"struct {class_.name} {{\n"
+        c += f"    {class_.name}Vtbl* vtbl;\n"
+        current_class_name = ""
+        for field in class_.fields.values():
+            if field.class_ != current_class_name:
+                c += f"    // {field.class_}\n"
+                current_class_name = field.class_
+            c += f"    {field.type} {field.name};\n"
         c += "};\n\n"
 
-    # Class macro method wrappers
-    for method in class_.methods.values():
-        target = ""
-        if method.is_virtual:
-            target = f"(({class_.name}*)(this))->vtbl->{method.name}"
-        else:
-            target = f"_{to_snake_case(method.class_)}_{method.name}"
-        c += f"#define {class_.snake_name}_{method.name}("
-        c += ", ".join(["this"] + [argument.name for argument in method.arguments])
-        c += f") {target}(({method.class_}*)(this)"
-        for argument in method.arguments:
-            for other_class in classes.values():
-                if argument.type.startswith(other_class.name):
-                    c += f", ({other_class.name}*)({argument.name})"
-                    break
+        # Class method forward defines
+        if not class_.is_abstract:
+            init_method = class_.methods["init"]
+            c += f"{class_.name}* {class_.snake_name}_new("
+            if len(init_method.arguments) > 0:
+                c += ", ".join([f"{argument.type} {argument.name}" for argument in init_method.arguments])
             else:
-                c += f", ({argument.name})"
-        c += ")\n"
-    c += "\n"
+                c += "void"
+            c += ");\n"
+        for method in class_.methods.values():
+            if method.class_ == class_.name:
+                c += (
+                    f"{method.return_type} _{class_.snake_name}_{method.name}("
+                    + ", ".join(
+                        [f"{class_.name}* this"] + [f"{argument.type} {argument.name}" for argument in method.arguments]
+                    )
+                    + ");\n"
+                )
+        c += "\n"
 
-    # Generated methods
-    c += g
+        # Class Vtbl instance
+        if not self.is_header and not class_.is_abstract:
+            c += f"{class_.name}Vtbl _{class_.name}Vtbl = {{\n"
+            current_class_name = ""
+            for method in class_.methods.values():
+                if method.is_virtual:
+                    if method.origin_class != current_class_name:
+                        c += f"    // {method.origin_class}\n"
+                        current_class_name = method.origin_class
+                    c += f"    &_{to_snake_case(method.class_)}_{method.name},\n"
+            c += "};\n\n"
 
-    return c
+        # Class macro method wrappers
+        for method in class_.methods.values():
+            target = ""
+            if method.is_virtual:
+                target = f"(({class_.name}*)(this))->vtbl->{method.name}"
+            else:
+                target = f"_{to_snake_case(method.class_)}_{method.name}"
+            c += f"#define {class_.snake_name}_{method.name}("
+            c += ", ".join(["this"] + [argument.name for argument in method.arguments])
+            c += f") {target}(({method.class_}*)(this)"
+            for argument in method.arguments:
+                for other_class in classes.values():
+                    if argument.type.startswith(other_class.name):
+                        c += f", ({other_class.name}*)({argument.name})"
+                        break
+                else:
+                    c += f", ({argument.name})"
+            c += ")\n"
+        c += "\n"
+
+        # Generated methods
+        if not self.is_header:
+            c += g
+
+        return c
 
 
 def convert_method(match: re.Match[str]) -> str:
@@ -491,62 +438,105 @@ def convert_method(match: re.Match[str]) -> str:
     return c
 
 
-def compile_code(code: str) -> str:
-    """Compile code"""
+def transpile_text(path: str, is_header: bool, text: str) -> str:
+    """Transpile text"""
 
+    # Remove #pragma once
+    text = re.sub(r"#pragma once\n", "", text)
+    # Convert includes
+    text = re.sub(
+        r"#include\s*[\"<](.+).hh[\">]",
+        ConvertInclude(path),
+        text,
+    )
     # Convert class defines
-    code = re.sub(
+    text = re.sub(
         r"class\s+([_A-Za-z][_A-Za-z0-9]*)\s*(:\s*[_A-Za-z][_A-Za-z0-9]*\s*)?{([^}]*)};",
-        convert_class,
-        code,
+        ConvertClass(is_header),
+        text,
     )
 
-    # Convert method defines
-    code = re.sub(
-        r"([_A-Za-z][_A-Za-z0-9 ]*[\**|\s+])\s*([_A-Za-z][_A-Za-z0-9]*)::([_A-Za-z][_A-Za-z0-9]*)\(([^\)]*)\)\s*{",
-        convert_method,
-        code,
-    )
+    if not is_header:
+        # Convert method defines
+        text = re.sub(
+            r"([_A-Za-z][_A-Za-z0-9 ]*[\**|\s+])\s*([_A-Za-z][_A-Za-z0-9]*)::([_A-Za-z][_A-Za-z0-9]*)\(([^\)]*)\)\s*{",
+            convert_method,
+            text,
+        )
 
-    return code
+    return text
 
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO, format="[%(levelname)s] %(message)s")
 
+    # Parse arguments
     parser = argparse.ArgumentParser()
-    parser.add_argument("file", help="C Continue file to compile")
+    parser.add_argument("file", help="CContinue file", nargs="*")
     parser.add_argument("--output", "-o", help="Output file", required=False)
-    parser.add_argument("--only-transpile", help="Don't compile output with gcc", action="store_true")
-    parser.add_argument("--run", help="Run the compiled binary", action="store_true")
-    parser.add_argument("--run-leaks", help="Run the compiled binary with memory leak checks", action="store_true")
+    parser.add_argument("--include", "-I", help="Include headers", action="append", default=[])
+    parser.add_argument("--source", "-S", help="Only run transpile step", action="store_true")
+    parser.add_argument("--compile", "-c", help="Only run transpile and compile steps", action="store_true")
+    parser.add_argument("--run", "-r", help="Run linked binary", action="store_true")
+    parser.add_argument("--run-leaks", "-R", help="Run linked binary with memory leaks checks", action="store_true")
     args = parser.parse_args()
 
-    file = open(args.file, "r", encoding="utf-8")  # pylint: disable=consider-using-with
-    text = file.read()
-    file.close()
+    include_paths = [".", f"{os.path.dirname(__file__)}/std"] + args.include
+    source_paths = args.file
+    if not args.source and not args.compile:
+        source_paths += [f"{os.path.dirname(__file__)}/std/Object.cc", f"{os.path.dirname(__file__)}/std/List.cc"]
 
-    c_path = args.file.replace(".cc", ".c")
-    file = open(c_path, "w", encoding="utf-8")  # pylint: disable=consider-using-with
-    file.write(compile_code(PRELUDE) + compile_code(text))
-    file.close()
-
-    if not args.only_transpile:
-        output_path = (
+    # Compile objects
+    object_paths = []
+    for path in source_paths:
+        # Transpile file
+        source_path = (
             args.output
             if args.output is not None
-            else args.file.replace(".cc", ".exe" if platform.system() == "Windows" else "")
+            else path.replace(".cc", ".c").replace(".hh", ".h") if args.source else tempfile.mktemp(".c")
         )
-        os.system(f"gcc --std=c11 -Wall -Wextra -Wpedantic -Werror {c_path} -o {output_path}")
+        text = f"{PRELUDE}{file_read(path)}"
+        transpiled_text = transpile_text(path, path.endswith(".hh"), text)
+        file_write(source_path, transpiled_text)
+        if args.source:
+            sys.exit(0)
 
-        if args.run:
-            os.system(f"./{output_path}")
+        # Compile file
+        object_path = (
+            (args.output if args.output is not None else path.replace(".cc", ".o"))
+            if args.compile
+            else tempfile.mktemp(".o")
+        )
+        object_paths.append(object_path)
+        subprocess.run(
+            [cc]
+            + C_FLAGS
+            + [f"-I{include_path}" for include_path in include_paths]
+            + ["-c", source_path, "-o", object_path],
+            check=True,
+        )
+        if args.compile:
+            sys.exit(0)
 
-        if args.run_leaks:
-            if platform.system() == "Darwin":
-                os.system(f"leaks --atExit -- ./{output_path}")
-            elif platform.system() == "Linux":
-                os.system(f"valgrind --leak-check=full --show-leak-kinds=all --track-origins=yes ./{output_path}")
-            else:
-                logging.error("Memory leak checks are not supported on this platform")
-                sys.exit(1)
+    # Link objects
+    exe_path = (
+        args.output
+        if args.output is not None
+        else args.file[0].replace(".cc", ".exe" if platform.system() == "Windows" else "")
+    )
+    subprocess.run(
+        [cc] + object_paths + ["-o", exe_path],
+        check=True,
+    )
+
+    # Run executable
+    if args.run:
+        os.system(f"./{exe_path}")
+    elif args.run_leaks:
+        if platform.system() == "Darwin":
+            os.system(f"leaks --atExit -- ./{exe_path}")
+        elif platform.system() == "Linux":
+            os.system(f"valgrind --leak-check=full --show-leak-kinds=all --track-origins=yes ./{exe_path}")
+        else:
+            logging.error("Memory leak checks are not supported on this platform")
+            sys.exit(1)
