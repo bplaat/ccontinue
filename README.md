@@ -11,7 +11,7 @@ You can create a class with some fields with the following syntax:
 ```cpp
 class Person {
     char* name;
-    int age;
+    i32 age;
 };
 ```
 
@@ -30,7 +30,7 @@ You can add attributes with the `@attribute` syntax before a class field to gene
 ```cpp
 class Person {
     @get @init(strdup) @free(free) char* name;
-    @prop @init int age;
+    @prop @init i32 age;
 };
 ```
 
@@ -38,13 +38,13 @@ This will inturn generated the following methods for us:
 ```cpp
 class Person {
     // ...
-    void init(char* name, int32_t age);
+    void init(char* name, i32 age);
     virtual Person* ref();
     virtual void free();
 
     char* get_name();
-    int32_t get_age();
-    void set_age(int32_t age);
+    i32 get_age();
+    void set_age(i32 age);
 };
 ```
 

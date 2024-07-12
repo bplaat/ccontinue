@@ -2,7 +2,7 @@
 
 class Person {
     @get @init(strdup) @free(free) char* name;
-    @prop @init int32_t age;
+    @prop @init i32 age;
 
     void greet();
 };

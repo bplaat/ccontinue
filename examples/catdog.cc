@@ -8,7 +8,7 @@ class Animal {
 
 // Cat
 class Cat : Animal {
-    @init int32_t lives;
+    @init i32 lives;
     virtual void jump();
 };
 void Cat::jump() {

@@ -1,7 +1,4 @@
-#include "pollyfills.h"
-
-#include <stdlib.h>
-#include <string.h>
+#include "prelude.hh"
 
 char* strdup(const char* s) {
     char* n = malloc(strlen(s) + 1);

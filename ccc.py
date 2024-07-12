@@ -65,15 +65,6 @@ class Class:
         self.methods = {}
 
 
-PRELUDE = """// @generated
-#include <stdbool.h>
-#include <stdint.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-"""
-C_FLAGS = ["--std=c11", "-Wall", "-Wextra", "-Wpedantic", "-Werror"]
-
 cc = os.environ["CC"] if "CC" in os.environ else "gcc"
 include_paths: List[str] = []
 classes: Dict[str, Class] = {}
@@ -484,7 +475,9 @@ if __name__ == "__main__":
     include_paths = [".", f"{os.path.dirname(__file__)}/std"] + args.include
     source_paths = args.file
     if not args.source and not args.compile:
-        source_paths += [f"{os.path.dirname(__file__)}/std/Object.cc", f"{os.path.dirname(__file__)}/std/List.cc"]
+        for path in os.listdir(f"{os.path.dirname(__file__)}/std"):
+            if path.endswith(".cc"):
+                source_paths.append(f"{os.path.dirname(__file__)}/std/{path}")
 
     # Compile objects
     object_paths = []
@@ -495,7 +488,7 @@ if __name__ == "__main__":
             if args.output is not None
             else path.replace(".cc", ".c").replace(".hh", ".h") if args.source else tempfile.mktemp(".c")
         )
-        text = f"{PRELUDE}{file_read(path)}"
+        text = f"// @generated\n{file_read(path)}"
         transpiled_text = transpile_text(path, path.endswith(".hh"), text)
         file_write(source_path, transpiled_text)
         if args.source:
@@ -510,7 +503,7 @@ if __name__ == "__main__":
         object_paths.append(object_path)
         subprocess.run(
             [cc]
-            + C_FLAGS
+            + ["--std=c11", "-Wall", "-Wextra", "-Wpedantic", "-Werror"]
             + [f"-I{include_path}" for include_path in include_paths]
             + ["-c", source_path, "-o", object_path],
             check=True,

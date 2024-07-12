@@ -1,9 +1,9 @@
 #pragma once
 
-#include <pollyfills.h>
+#include "prelude.hh"
 
 class Object {
-    size_t refs = 1;
+    i32 refs = 1;
 
     void init();
     virtual Object* ref();
