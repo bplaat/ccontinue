@@ -10,7 +10,7 @@ I like C and I like C++, both are powerful languages in there own right. But C++
 You can create a class with some fields with the following syntax:
 ```
 class Person {
-    char *name;
+    char* name;
     int age;
 }
 ```
@@ -18,7 +18,7 @@ class Person {
 All classes are structs that inherit from the root `Object` class which is heap allocated and ref counted. A `new`, `ref` and `free` method are automatically generated for you and you can use the fields just like a struct:
 ```
 int main(void) {
-    Person *person = person_new();
+    Person* person = person_new();
     person->name = "Bastiaan";
     person->age = 21;
     person_free(person);
@@ -29,7 +29,7 @@ int main(void) {
 You can add attributes with the `@attribute` syntax before a class field to generated methods automatically. This is useful because it saves a lot of typing work, we can extend the `Person` class with the following attributes:
 ```
 class Person {
-    @get @init(strdup) @free(free) char *name;
+    @get @init(strdup) @free(free) char* name;
     @prop @init int age;
 }
 ```
@@ -38,10 +38,10 @@ This will inturn generated the following methods for us:
 ```
 class Person {
     // ...
-    void init(char *name, int32_t age);
-    virtual Person *ref();
+    void init(char* name, int32_t age);
+    virtual Person* ref();
     virtual void free();
-    char *get_name();
+    char* get_name();
     int32_t get_age();
     void set_age(int32_t age);
 }
@@ -58,7 +58,7 @@ You can use the following attributes:
 Classes can inherit from other classes with the `extends` keyword and classes can be made `abstract`:
 ```
 abstract class Animal {
-    @prop @init(strdup) @free char *name;
+    @prop @init(strdup) @free char* name;
     virtual void greet();
 }
 

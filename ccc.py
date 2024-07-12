@@ -13,8 +13,8 @@ import sys
 from typing import Dict, List, Optional
 
 POLLY_FILLS = """
-char *strdup(const char *s) {
-    char *n = malloc(strlen(s) + 1);
+char* strdup(const char* s) {
+    char* n = malloc(strlen(s) + 1);
     strcpy(n, s);
     return n;
 }
@@ -26,7 +26,7 @@ class Object {
     size_t refs = 1;
 
     void init();
-    virtual Object *ref();
+    virtual Object* ref();
     virtual void free();
 }
 
@@ -34,7 +34,7 @@ void Object::init() {
     (void)this;
 }
 
-Object *Object::ref() {
+Object* Object::ref() {
     this->refs++;
     return this;
 }
@@ -47,58 +47,58 @@ void Object::free() {
 
 LIST_CLASS = """
 class List extends Object {
-    Object **items;
+    Object** items;
     @get size_t capacity = 8;
     @get size_t size = 0;
 
     void init();
     virtual void free();
-    Object *get(size_t index);
-    void set(size_t index, Object *item);
-    void add(Object *item);
-    void insert(size_t index, Object *item);
+    Object* get(size_t index);
+    void set(size_t index, Object* item);
+    void add(Object* item);
+    void insert(size_t index, Object* item);
     void remove(size_t index);
 }
 
 void List::init() {
     object_init(this);
-    this->items = malloc(sizeof(Object *) * this->capacity);
+    this->items = malloc(sizeof(Object*) * this->capacity);
 }
 
 void List::free() {
     for (size_t i = 0; i < this->size; i++)
         object_free(this->items[i]);
     free(this->items);
-    _object_free((Object *)this);
+    _object_free((Object*)this);
 }
 
-Object *List::get(size_t index) {
+Object* List::get(size_t index) {
     return this->items[index];
 }
 
-void List::set(size_t index, Object *item) {
+void List::set(size_t index, Object* item) {
     if (index > this->capacity) {
         while (index > this->capacity)
             this->capacity *= 2;
-        this->items = realloc(this->items, sizeof(Object *) * this->capacity);
+        this->items = realloc(this->items, sizeof(Object*) * this->capacity);
     }
     while (this->size <= index)
         this->items[this->size++] = NULL;
     this->items[index] = item;
 }
 
-void List::add(Object *item) {
+void List::add(Object* item) {
     if (this->size == this->capacity) {
         this->capacity *= 2;
-        this->items = realloc(this->items, sizeof(Object *) * this->capacity);
+        this->items = realloc(this->items, sizeof(Object*) * this->capacity);
     }
     this->items[this->size++] = item;
 }
 
-void List::insert(size_t index, Object *item) {
+void List::insert(size_t index, Object* item) {
     if (this->size == this->capacity) {
         this->capacity *= 2;
-        this->items = realloc(this->items, sizeof(Object *) * this->capacity);
+        this->items = realloc(this->items, sizeof(Object*) * this->capacity);
     }
     for (size_t i = this->size - 1; i >= index; i--)
         this->items[i + 1] = this->items[i];
@@ -297,7 +297,7 @@ def convert_class(match: re.Match[str]) -> str:
 
             g += f"void _{class_.snake_name}_init("
             g += ", ".join(
-                [f"{class_.name} *this"] + [f"{argument.type} {argument.name}" for argument in init_method.arguments]
+                [f"{class_.name}* this"] + [f"{argument.type} {argument.name}" for argument in init_method.arguments]
             )
             g += ") {\n"
             g += f"    {parent_class.snake_name}_init("
@@ -319,7 +319,7 @@ def convert_class(match: re.Match[str]) -> str:
         if class_.methods["free"].class_ != class_.name and field_needs_free is not None:
             class_.methods["free"].class_ = class_.name
 
-            g += f"void _{class_.snake_name}_free({class_.name} *this) {{\n"
+            g += f"void _{class_.snake_name}_free({class_.name}* this) {{\n"
             for field in class_.fields.values():
                 if field.class_ == class_.name and "free" in field.attributes:
                     if len(field.attributes["free"]) > 0:
@@ -332,7 +332,7 @@ def convert_class(match: re.Match[str]) -> str:
                         else:
                             g += f"    free(this->{field.name});\n"
             class_with_free = find_class_for_method(classes[parent_class.name], "free")
-            g += f"    _{class_with_free.snake_name}_free(({class_with_free.name} *)this);\n"
+            g += f"    _{class_with_free.snake_name}_free(({class_with_free.name}*)this);\n"
             g += "}\n\n"
 
         # Get attribute
@@ -341,7 +341,7 @@ def convert_class(match: re.Match[str]) -> str:
                 method_name = f"get_{field.name}"
                 class_.methods[method_name] = Method(method_name, field.type, False, [], class_.name, class_.name)
 
-                g += f"{field.type} _{class_.snake_name}_get_{field.name}({class_.name} *this) {{\n"
+                g += f"{field.type} _{class_.snake_name}_get_{field.name}({class_.name}* this) {{\n"
                 g += f"    return this->{field.name};\n"
                 g += "}\n\n"
 
@@ -353,7 +353,7 @@ def convert_class(match: re.Match[str]) -> str:
                     method_name, "void", False, [Argument(field.name, field.type)], class_.name, class_.name
                 )
 
-                g += f"void _{class_.snake_name}_set_{field.name}({class_.name} *this, "
+                g += f"void _{class_.snake_name}_set_{field.name}({class_.name}* this, "
                 g += f"{field.type} {field.name}) {{\n"
                 g += f"    this->{field.name} = {field.name};\n"
                 g += "}\n\n"
@@ -361,14 +361,14 @@ def convert_class(match: re.Match[str]) -> str:
         # New method
         if not class_.is_abstract:
             init_method = class_.methods["init"]
-            g += f"{class_.name} *{class_.snake_name}_new("
+            g += f"{class_.name}* {class_.snake_name}_new("
             if len(init_method.arguments) > 0:
                 g += ", ".join([f"{argument.type} {argument.name}" for argument in init_method.arguments])
             else:
                 g += "void"
             g += (
                 ") {\n"
-                + f"    {class_.name} *this = malloc(sizeof({class_.name}));\n"
+                + f"    {class_.name}* this = malloc(sizeof({class_.name}));\n"
                 + f"    this->vtbl = &_{class_.name}Vtbl;\n"
                 + f"    {class_.snake_name}_init("
                 + ", ".join(["this"] + [argument.name for argument in init_method.arguments])
@@ -390,7 +390,7 @@ def convert_class(match: re.Match[str]) -> str:
                 current_class_name = method.origin_class
             c += f"    {method.return_type} (*{method.name})("
             c += ", ".join(
-                [f"{method.class_} *this"] + [f"{argument.type} {argument.name}" for argument in method.arguments]
+                [f"{method.class_}* this"] + [f"{argument.type} {argument.name}" for argument in method.arguments]
             )
             c += ");\n"
 
@@ -398,7 +398,7 @@ def convert_class(match: re.Match[str]) -> str:
 
     # Class struct
     c += f"struct {class_.name} {{\n"
-    c += f"    {class_.name}Vtbl *vtbl;\n"
+    c += f"    {class_.name}Vtbl* vtbl;\n"
     current_class_name = ""
     for field in class_.fields.values():
         if field.class_ != current_class_name:
@@ -413,7 +413,7 @@ def convert_class(match: re.Match[str]) -> str:
             c += (
                 f"{method.return_type} _{class_.snake_name}_{method.name}("
                 + ", ".join(
-                    [f"{class_.name} *this"] + [f"{argument.type} {argument.name}" for argument in method.arguments]
+                    [f"{class_.name}* this"] + [f"{argument.type} {argument.name}" for argument in method.arguments]
                 )
                 + ");\n"
             )
@@ -435,16 +435,16 @@ def convert_class(match: re.Match[str]) -> str:
     for method in class_.methods.values():
         target = ""
         if method.is_virtual:
-            target = f"(({class_.name} *)(this))->vtbl->{method.name}"
+            target = f"(({class_.name}*)(this))->vtbl->{method.name}"
         else:
             target = f"_{to_snake_case(method.class_)}_{method.name}"
         c += f"#define {class_.snake_name}_{method.name}("
         c += ", ".join(["this"] + [argument.name for argument in method.arguments])
-        c += f") {target}(({method.class_} *)(this)"
+        c += f") {target}(({method.class_}*)(this)"
         for argument in method.arguments:
             for other_class in classes.values():
                 if argument.type.startswith(other_class.name):
-                    c += f", ({other_class.name} *)({argument.name})"
+                    c += f", ({other_class.name}*)({argument.name})"
                     break
             else:
                 c += f", ({argument.name})"
@@ -467,7 +467,7 @@ def convert_method(match: re.Match[str]) -> str:
     class_ = classes[class_name]
 
     arguments_str = f", {arguments}" if len(arguments) > 0 else ""
-    c = f"{return_type.strip()} _{class_.snake_name}_{method_name}({class_name} *this{arguments_str}) {{"
+    c = f"{return_type.strip()} _{class_.snake_name}_{method_name}({class_name}* this{arguments_str}) {{"
 
     if method_name == "init":
         for field in class_.fields.values():

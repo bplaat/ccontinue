@@ -4,7 +4,7 @@ class Context {
 
 // Widget
 class Widget {
-    @get @init Context *context;
+    @get @init Context* context;
     @prop bool visible = true;
 
     virtual void draw();
@@ -16,12 +16,12 @@ void Widget::draw() {
 
 // Container
 class Container extends Widget {
-    @get @free(list_free) List *children = list_new();
+    @get @free(list_free) List* children = list_new();
 
-    void add(Widget *widget);
+    void add(Widget* widget);
 }
 
-void Container::add(Widget *widget) {
+void Container::add(Widget* widget) {
     list_add(this->children, widget);
 }
 
@@ -35,14 +35,14 @@ class Box extends Container {
 
 // Label
 class Label extends Widget {
-    @prop @init(strdup) @free(free) char *text;
+    @prop @init(strdup) @free(free) char* text;
 }
 
 // Main
 int main(void) {
-    Context *context = context_new();
+    Context* context = context_new();
 
-    Box *box = box_new(context, ORIENTATION_VERTICAL);
+    Box* box = box_new(context, ORIENTATION_VERTICAL);
     box_add(box, label_new(context, "Line 1"));
     box_add(box, label_new(context, "Line 2"));
     box_add(box, label_new(context, "Line 3"));

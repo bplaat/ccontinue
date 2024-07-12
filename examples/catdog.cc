@@ -1,6 +1,6 @@
 // Animal
 abstract class Animal {
-    @get @init(strdup) @free(free) char *name;
+    @get @init(strdup) @free(free) char* name;
     virtual void jump();
 }
 
@@ -25,14 +25,14 @@ void Dog::jump() {
 
 // Main
 int main(void) {
-    List *animals = list_new();
+    List* animals = list_new();
     list_add(animals, cat_new("Mew", 6));
     list_add(animals, dog_new("Woof"));
     list_add(animals, cat_new("Mew 2.0", 9));
     list_add(animals, dog_new("Doggie"));
 
     for (size_t i = 0; i < list_get_size(animals); i++) {
-        Animal *animal = (Animal *)list_get(animals, i);
+        Animal* animal = (Animal*)list_get(animals, i);
         animal_jump(animal);
     }
 
