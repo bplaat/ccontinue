@@ -35,7 +35,7 @@ class Box extends Container {
 
 // Label
 class Label extends Widget {
-    @prop @init @free(string_free) String *text;
+    @prop @init(strdup) @free(free) char *text;
 }
 
 // Main
@@ -43,9 +43,9 @@ int main(void) {
     Context *context = context_new();
 
     Box *box = box_new(context, ORIENTATION_VERTICAL);
-    box_add(box, label_new(context, string_new("Line 1")));
-    box_add(box, label_new(context, string_new("Line 2")));
-    box_add(box, label_new(context, string_new("Line 3")));
+    box_add(box, label_new(context, "Line 1"));
+    box_add(box, label_new(context, "Line 2"));
+    box_add(box, label_new(context, "Line 3"));
     box_free(box);
 
     context_free(context);

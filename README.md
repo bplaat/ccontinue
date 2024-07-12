@@ -29,7 +29,7 @@ int main(void) {
 You can add attributes with the `@attribute` syntax before a class field to generated methods automatically. This is useful because it saves a lot of typing work, we can extend the `Person` class with the following attributes:
 ```
 class Person {
-    @get @init @free(string_free) String *name;
+    @get @init(strdup) @free(free) char *name;
     @prop @init int age;
 }
 ```
@@ -38,10 +38,10 @@ This will inturn generated the following methods for us:
 ```
 class Person {
     // ...
-    void init(String *name, int32_t age);
+    void init(char *name, int32_t age);
     virtual Person *ref();
     virtual void free();
-    String * get_name();
+    char *get_name();
     int32_t get_age();
     void set_age(int32_t age);
 }
@@ -50,7 +50,7 @@ class Person {
 You can use the following attributes:
 - `@get` Generate a getter method for this field
 - `@set` Generate a setter method for this field
-- `@prop` Short cut for `@get` and `@set`
+- `@prop` alias for `@get @set`
 - `@init(init_function)` Use this field as an argument for the generated `init` method
 - `@free(free_function)` Free this field in the generated `free` method
 

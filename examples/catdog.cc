@@ -1,6 +1,6 @@
 // Animal
 abstract class Animal {
-    @get @init @free(string_free) String *name;
+    @get @init(strdup) @free(free) char *name;
     virtual void jump();
 }
 
@@ -11,7 +11,7 @@ class Cat extends Animal {
 }
 
 void Cat::jump() {
-    printf("Cat %s jumps, it has %d lives left!\n", string_get_str(this->name), this->lives);
+    printf("Cat %s jumps, it has %d lives left!\n", this->name, this->lives);
 }
 
 // Dog
@@ -20,16 +20,16 @@ class Dog extends Animal {
 }
 
 void Dog::jump() {
-    printf("Dog %s jumps!\n", string_get_str(this->name));
+    printf("Dog %s jumps!\n", this->name);
 }
 
 // Main
 int main(void) {
     List *animals = list_new();
-    list_add(animals, cat_new(string_new("Mew"), 6));
-    list_add(animals, dog_new(string_new("Woof")));
-    list_add(animals, cat_new(string_new("Mew 2.0"), 9));
-    list_add(animals, dog_new(string_new("Doggie")));
+    list_add(animals, cat_new("Mew", 6));
+    list_add(animals, dog_new("Woof"));
+    list_add(animals, cat_new("Mew 2.0", 9));
+    list_add(animals, dog_new("Doggie"));
 
     for (size_t i = 0; i < list_get_size(animals); i++) {
         Animal *animal = (Animal *)list_get(animals, i);

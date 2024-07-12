@@ -45,13 +45,6 @@ void Object::free() {
 }
 """
 
-STRING_CLASS = """
-class String {
-    @get @init(strdup) @free char *str;
-    @get size_t size = strlen(str);
-}
-"""
-
 LIST_CLASS = """
 class List extends Object {
     Object **items;
@@ -129,7 +122,6 @@ PRELUDE = f"""// @generated
 
 {POLLY_FILLS}
 {OBJECT_CLASS}
-{STRING_CLASS}
 {LIST_CLASS}
 """
 
