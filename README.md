@@ -8,7 +8,7 @@ I like C and I like C++, both are powerful languages in there own right. But C++
 
 ### A basic class
 You can create a class with some fields with the following syntax:
-```
+```cpp
 class Person {
     char* name;
     int age;
@@ -16,7 +16,7 @@ class Person {
 ```
 
 All classes are structs that inherit from the root `Object` class which is heap allocated and ref counted. The `new`, `ref` and `free` methods are automatically generated for you and you can use the fields just like a struct:
-```
+```cpp
 int main(void) {
     Person* person = person_new();
     person->name = "Bastiaan";
@@ -27,7 +27,7 @@ int main(void) {
 
 ### Field attributes
 You can add attributes with the `@attribute` syntax before a class field to generated methods automatically. This is useful because it saves a lot of typing work, we can extend the `Person` class with the following attributes:
-```
+```cpp
 class Person {
     @get @init(strdup) @free(free) char* name;
     @prop @init int age;
@@ -35,7 +35,7 @@ class Person {
 ```
 
 This will inturn generated the following methods for us:
-```
+```cpp
 class Person {
     // ...
     void init(char* name, int32_t age);
@@ -57,7 +57,7 @@ You can use the following attributes:
 
 ### Abstract classes
 Classes can be made abstract when they have a virtual method without implementation:
-```
+```cpp
 class Animal {
     @prop @init(strdup) @free char* name;
     virtual void greet() = 0;
@@ -66,16 +66,16 @@ class Animal {
 
 ### Class inheritance
 Classes can inherit from **one** other class:
-```
+```cpp
 class Dog : Animal {
-    void greet();
+    virtual void greet();
 };
 void Dog::greet() {
     printf("The dog %s greets you!\n", this->name);
 }
 
 class Cat : Animal {
-    void Greet();
+    virtual void Greet();
 };
 void Cat::greet() {
     printf("The cat %s greets you!\n", this->name);
@@ -85,6 +85,7 @@ void Cat::greet() {
 ## TODO
 - Add support for separate code and header files
 - Add interfaces that work like Java interfaces
+- A way for static class initialization
 
 ## License
 Copyright (c) 2021 - 2024 Bastiaan van der Plaat
