@@ -28,7 +28,7 @@ class Object {
     void init();
     virtual Object* ref();
     virtual void free();
-}
+};
 
 void Object::init() {
     (void)this;
@@ -46,7 +46,7 @@ void Object::free() {
 """
 
 LIST_CLASS = """
-class List extends Object {
+class List : Object {
     Object** items;
     @get size_t capacity = 8;
     @get size_t size = 0;
@@ -58,7 +58,7 @@ class List extends Object {
     void add(Object* item);
     void insert(size_t index, Object* item);
     void remove(size_t index);
-}
+};
 
 void List::init() {
     object_init(this);
@@ -199,12 +199,12 @@ def convert_class(match: re.Match[str]) -> str:
     """Convert class define"""
 
     # ==== Indexing ====
-    abstract_str, class_name, extends_str, contents = match.groups()
+    class_name, extends_str, contents = match.groups()
 
     # Get parent class
     parent_name = None if class_name == "Object" else "Object"
     if extends_str is not None:
-        parent_name = extends_str[len("extends ") :].strip()
+        parent_name = extends_str[1:].strip()
 
     parent_class = None
     if parent_name is not None:
@@ -215,7 +215,6 @@ def convert_class(match: re.Match[str]) -> str:
 
     # Create class object
     class_ = Class(class_name, parent_name)
-    class_.is_abstract = abstract_str is not None
     if parent_class is not None:
         class_.fields = copy.deepcopy(parent_class.fields)
         class_.methods = copy.deepcopy(parent_class.methods)
@@ -254,10 +253,10 @@ def convert_class(match: re.Match[str]) -> str:
 
     # Index methods
     for method_parts in re.findall(
-        r"([_A-Za-z][_A-Za-z0-9 ]*[\**|\s+])\s*([_A-Za-z][_A-Za-z0-9]*)\(([^\)]*)\)\s*;",
+        r"([_A-Za-z][_A-Za-z0-9 ]*[\**|\s+])\s*([_A-Za-z][_A-Za-z0-9]*)\(([^\)]*)\)\s*(=\s*0)?;",
         contents,
     ):
-        return_type, name, arguments_str = method_parts
+        return_type, name, arguments_str, is_zero = method_parts
 
         arguments = []
         if arguments_str != "":
@@ -273,6 +272,13 @@ def convert_class(match: re.Match[str]) -> str:
         if "virtual " in return_type:
             return_type = return_type.replace("virtual ", "")
             is_virtual = True
+
+        if is_zero != "":
+            if is_virtual:
+                class_.is_abstract = True
+            else:
+                logging.error("Only virtual methods can be set to zero: %s", name)
+                sys.exit(1)
 
         if name in class_.methods:
             class_.methods[name].class_ = class_.name
@@ -490,7 +496,7 @@ def compile_code(code: str) -> str:
 
     # Convert class defines
     code = re.sub(
-        r"(abstract\s+)?class\s+([_A-Za-z][_A-Za-z0-9]*)\s*(extends\s+[_A-Za-z][_A-Za-z0-9]*\s*)?{([^}]*)}",
+        r"class\s+([_A-Za-z][_A-Za-z0-9]*)\s*(:\s*[_A-Za-z][_A-Za-z0-9]*\s*)?{([^}]*)};",
         convert_class,
         code,
     )

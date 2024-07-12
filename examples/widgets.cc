@@ -1,6 +1,5 @@
 // Context
-class Context {
-}
+class Context {};
 
 // Widget
 class Widget {
@@ -8,18 +7,18 @@ class Widget {
     @prop bool visible = true;
 
     virtual void draw();
-}
+};
 
 void Widget::draw() {
     (void)this;
 }
 
 // Container
-class Container extends Widget {
+class Container : Widget {
     @get @free(list_free) List* children = list_new();
 
     void add(Widget* widget);
-}
+};
 
 void Container::add(Widget* widget) {
     list_add(this->children, widget);
@@ -29,14 +28,14 @@ void Container::add(Widget* widget) {
 typedef enum Orientation { ORIENTATION_HORIZONTAL, ORIENTATION_VERTICAL } Orientation;
 
 // Box
-class Box extends Container {
+class Box : Container {
     @prop @init Orientation orientation;
-}
+};
 
 // Label
-class Label extends Widget {
+class Label : Widget {
     @prop @init(strdup) @free(free) char* text;
-}
+};
 
 // Main
 int main(void) {

@@ -1,7 +1,7 @@
 # CContinue Transpiler
 *A transpiler that translates an OOP-extension for the C programming language back to C*
 
-I like C and I like C++, both are powerful languages in there own right. But C++ is quite complicated and sometimes I just want to create some classes with inheritance in my C project. So I've created the weird hacky Python transpiler that can translate a custom syntax inspired by C++ and Java back to C code.
+I like C and I like C++, both are powerful languages in there own right. But C++ is quite complicated and sometimes I just want to create some classes with inheritance in my C project. So I've created the weird hacky Python transpiler that can translate a C++ like syntax with a Java like class system back to C code 🤓.
 
 ## The syntax
 *The documentation is bad I know*
@@ -12,10 +12,10 @@ You can create a class with some fields with the following syntax:
 class Person {
     char* name;
     int age;
-}
+};
 ```
 
-All classes are structs that inherit from the root `Object` class which is heap allocated and ref counted. A `new`, `ref` and `free` method are automatically generated for you and you can use the fields just like a struct:
+All classes are structs that inherit from the root `Object` class which is heap allocated and ref counted. The `new`, `ref` and `free` methods are automatically generated for you and you can use the fields just like a struct:
 ```
 int main(void) {
     Person* person = person_new();
@@ -31,7 +31,7 @@ You can add attributes with the `@attribute` syntax before a class field to gene
 class Person {
     @get @init(strdup) @free(free) char* name;
     @prop @init int age;
-}
+};
 ```
 
 This will inturn generated the following methods for us:
@@ -41,10 +41,11 @@ class Person {
     void init(char* name, int32_t age);
     virtual Person* ref();
     virtual void free();
+
     char* get_name();
     int32_t get_age();
     void set_age(int32_t age);
-}
+};
 ```
 
 You can use the following attributes:
@@ -54,34 +55,36 @@ You can use the following attributes:
 - `@init(init_function)` Use this field as an argument for the generated `init` method
 - `@free(free_function)` Free this field in the generated `free` method
 
-### Class inheritance
-Classes can inherit from other classes with the `extends` keyword and classes can be made `abstract`:
+### Abstract classes
+Classes can be made abstract when they have a virtual method without implementation:
 ```
-abstract class Animal {
+class Animal {
     @prop @init(strdup) @free char* name;
-    virtual void greet();
-}
+    virtual void greet() = 0;
+};
+```
 
-class Dog extends Animal {
+### Class inheritance
+Classes can inherit from **one** other class:
+```
+class Dog : Animal {
     void greet();
-}
+};
 void Dog::greet() {
     printf("The dog %s greets you!\n", this->name);
 }
 
-class Cat extends Animal {
+class Cat : Animal {
     void Greet();
-}
+};
 void Cat::greet() {
     printf("The cat %s greets you!\n", this->name);
 }
 ```
 
-See the code examples in [examples/](examples/) for more info
-
 ## TODO
 - Add support for separate code and header files
-- Add interfaces that work like Java interfaces and like Rust traits
+- Add interfaces that work like Java interfaces
 
 ## License
 Copyright (c) 2021 - 2024 Bastiaan van der Plaat

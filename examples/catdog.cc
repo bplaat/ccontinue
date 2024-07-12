@@ -1,24 +1,22 @@
 // Animal
-abstract class Animal {
+class Animal {
     @get @init(strdup) @free(free) char* name;
-    virtual void jump();
-}
+    virtual void jump() = 0;
+};
 
 // Cat
-class Cat extends Animal {
+class Cat : Animal {
     @init int32_t lives;
     virtual void jump();
-}
-
+};
 void Cat::jump() {
     printf("Cat %s jumps, it has %d lives left!\n", this->name, this->lives);
 }
 
 // Dog
-class Dog extends Animal {
+class Dog : Animal {
     virtual void jump();
-}
-
+};
 void Dog::jump() {
     printf("Dog %s jumps!\n", this->name);
 }

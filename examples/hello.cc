@@ -3,7 +3,7 @@ class Person {
     @prop @init int32_t age;
 
     void greet();
-}
+};
 
 void Person::greet() {
     printf("Hello %s, you are %d years old!\n", this->name, this->age);
