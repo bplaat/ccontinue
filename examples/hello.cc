@@ -30,6 +30,9 @@ int main(void) {
         person_greet(person);
     }
 
+    List* persons_copy = list_ref(persons);
+    list_free(persons_copy);
+
     list_free(persons);
     return EXIT_SUCCESS;
 }

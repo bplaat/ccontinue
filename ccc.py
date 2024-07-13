@@ -207,6 +207,8 @@ class ConvertClass:
                     sys.exit(1)
 
             if name in class_.methods:
+                class_.methods[name].return_type = return_type
+                class_.methods[name].arguments = arguments
                 class_.methods[name].class_ = class_.name
             else:
                 class_.methods[name] = Method(name, return_type, is_virtual, arguments, class_.name, class_.name)
