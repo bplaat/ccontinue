@@ -504,7 +504,7 @@ if __name__ == "__main__":
 
         # Compile file
         object_path = (
-            (args.output if args.output is not None else path.replace(".c", ".o").replace(".cc", ".o"))
+            (args.output if args.output is not None else path.replace(".cc", ".o").replace(".c", ".o"))
             if args.compile
             else tempfile.mktemp(".o")
         )
