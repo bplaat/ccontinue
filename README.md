@@ -1,4 +1,4 @@
-# CContinue Transpiler
+# cContinue Transpiler
 *A transpiler that translates an OOP-extension for the C programming language back to C*
 
 I like C and I like C++, both are powerful languages in there own right. But C++ is quite complicated and sometimes I just want to create some classes with inheritance in my C project. So I've created the weird hacky Python transpiler that can translate a C++ like syntax with a Java like class system back to C code 🤓.

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-""" CContinue Transpiler v0.1.0
+""" cContinue Transpiler v0.1.0
 """
 
 import argparse
@@ -463,7 +463,7 @@ if __name__ == "__main__":
 
     # Parse arguments
     parser = argparse.ArgumentParser()
-    parser.add_argument("file", help="CContinue file", nargs="*")
+    parser.add_argument("file", help="cContinue file", nargs="*")
     parser.add_argument("--output", "-o", help="Output file", required=False)
     parser.add_argument("--include", "-I", help="Include headers", action="append", default=[])
     parser.add_argument("--source", "-S", help="Only run transpile step", action="store_true")
