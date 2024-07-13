@@ -25,7 +25,7 @@ int main(void) {
     list_add(persons, person_new("Leonard", 17));
     list_add(persons, person_new("Jiska", 16));
 
-    for (size_t i = 0; i < list_get_size(persons); i++) {
+    for (usize i = 0; i < list_get_size(persons); i++) {
         Person* person = (Person*)list_get(persons, i);
         person_greet(person);
     }

@@ -31,7 +31,7 @@ int main(void) {
     list_add(animals, cat_new("Mew 2.0", 9));
     list_add(animals, dog_new("Doggie"));
 
-    for (size_t i = 0; i < list_get_size(animals); i++) {
+    for (usize i = 0; i < list_get_size(animals); i++) {
         Animal* animal = (Animal*)list_get(animals, i);
         animal_jump(animal);
     }

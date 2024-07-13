@@ -4,10 +4,9 @@
 I like C and I like C++, both are powerful languages in there own right. But C++ is quite complicated and sometimes I just want to create some classes with inheritance in my C project. So I've created the weird hacky Python transpiler that can translate a C++ like syntax with a Java like class system back to C code 🤓.
 
 ## The syntax
-*The documentation is bad I know*
 
-### A basic class
-You can create a class with some fields with the following syntax:
+### Basic class
+A basic class can be created with the `class` keyword, a class can contain fields:
 ```cpp
 class Person {
     char* name;
@@ -15,7 +14,7 @@ class Person {
 };
 ```
 
-All classes are structs that inherit from the root `Object` class which is heap allocated and ref counted. The `new`, `ref` and `free` methods are automatically generated for you and you can use the fields just like a struct:
+A class is just a `struct` that inherit fields and (virtual) methods from its parent. If no parent class is defined the class will inherit from the base `Object` class. All class instances are heap allocated and reference counted. You can create a class instance with the created `_new()` method and free the instance with the created `_free()` method:
 ```cpp
 int main(void) {
     Person* person = person_new();
@@ -25,8 +24,30 @@ int main(void) {
 }
 ```
 
+### Class methods
+Classes can also have methods, you can't implement methods inline in the class definition like C++ but you have to use the separated method impl syntax:
+```cpp
+class Person {
+    // ...
+    void greet();
+};
+
+void Person::greet() {
+    printf("Hello %s, you are %d years old!\n", this->name, this->age);
+}
+```
+
+You can call the method like the `free` method:
+```cpp
+int main(void) {
+    // ...
+    person_greet(person);
+    person_free(person);
+}
+```
+
 ### Field attributes
-You can add attributes with the `@attribute` syntax before a class field to generated methods automatically. This is useful because it saves a lot of typing work, we can extend the `Person` class with the following attributes:
+You can add attributes with the `@attribute` syntax before class fields to generated methods automatically. This is useful because it saves a lot of typing work, we can extend the `Person` class with the following attributes:
 ```cpp
 class Person {
     @get @init(strdup) @free(free) char* name;
@@ -34,7 +55,7 @@ class Person {
 };
 ```
 
-This will inturn generated the following methods for us:
+This will in turn generated the following methods for us:
 ```cpp
 class Person {
     // ...
@@ -46,6 +67,15 @@ class Person {
     i32 get_age();
     void set_age(i32 age);
 };
+```
+
+All the fields of the `init` method are also present in the `new` method, so our main function can be:
+```cpp
+int main(void) {
+    Person* person = person_new("Bastiaan", 21);
+    // ...
+    person_free(person);
+}
 ```
 
 You can use the following attributes:
@@ -65,7 +95,7 @@ class Animal {
 ```
 
 ### Class inheritance
-Classes can inherit from **one** other class:
+Classes can inherit from **one** other parent class:
 ```cpp
 class Dog : Animal {
     virtual void greet();
