@@ -65,7 +65,6 @@ class Class:
         self.methods = {}
 
 
-cc = os.environ["CC"] if "CC" in os.environ else "gcc"
 include_paths: List[str] = []
 classes: Dict[str, Class] = {}
 
@@ -472,31 +471,38 @@ if __name__ == "__main__":
     parser.add_argument("--run-leaks", "-R", help="Run linked binary with memory leaks checks", action="store_true")
     args = parser.parse_args()
 
+    # Get paths
+    cc = os.environ["CC"] if "CC" in os.environ else "gcc"
     include_paths = [".", f"{os.path.dirname(__file__)}/std"] + args.include
     source_paths = args.file
     if not args.source and not args.compile:
         for path in os.listdir(f"{os.path.dirname(__file__)}/std"):
-            if path.endswith(".cc"):
+            if path.endswith(".c") or path.endswith(".cc"):
                 source_paths.append(f"{os.path.dirname(__file__)}/std/{path}")
 
     # Compile objects
     object_paths = []
     for path in source_paths:
+        # Skip already compiled object files
+        if path.endswith(".o"):
+            object_paths.append(path)
+            continue
+
         # Transpile file
-        source_path = (
-            args.output
-            if args.output is not None
-            else path.replace(".cc", ".c").replace(".hh", ".h") if args.source else tempfile.mktemp(".c")
-        )
-        text = f"// @generated\n{file_read(path)}"
-        transpiled_text = transpile_text(path, path.endswith(".hh"), text)
-        file_write(source_path, transpiled_text)
-        if args.source:
-            sys.exit(0)
+        source_path = path
+        if path.endswith(".hh") or path.endswith(".cc"):
+            source_path = (
+                args.output
+                if args.output is not None
+                else path.replace(".cc", ".c").replace(".hh", ".h") if args.source else tempfile.mktemp(".c")
+            )
+            file_write(source_path, transpile_text(path, path.endswith(".hh"), f"// @generated\n{file_read(path)}"))
+            if args.source:
+                sys.exit(0)
 
         # Compile file
         object_path = (
-            (args.output if args.output is not None else path.replace(".cc", ".o"))
+            (args.output if args.output is not None else path.replace(".c", ".o").replace(".cc", ".o"))
             if args.compile
             else tempfile.mktemp(".o")
         )

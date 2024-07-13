@@ -1,6 +1,6 @@
 #pragma once
 
-#include "prelude.hh"
+#include "prelude.h"
 
 class Object {
     i32 refs = 1;
