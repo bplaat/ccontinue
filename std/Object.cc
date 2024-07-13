@@ -8,5 +8,6 @@ Object* Object::ref() {
 }
 
 void Object::free() {
-    if (--this->refs == 0) free(this);
+    if (--this->refs == 0)
+        free(this);
 }
