@@ -104,12 +104,18 @@ def find_class_for_method(class_: Class, method_name: str) -> Class:
 class ConvertInclude:
     """Convert class"""
 
+    processed_includes: List[str] = []
+
     def __init__(self, current_path: str) -> None:
         self.current_path = current_path
 
     def __call__(self, match: re.Match[str]) -> str:
         """Convert include"""
         base_path = f"{match.groups()[0]}.hh"
+        if base_path in ConvertInclude.processed_includes:
+            return ""
+        ConvertInclude.processed_includes.append(base_path)
+
         for include_path in include_paths:
             complete_path = f"{include_path}/{base_path}"
             if os.path.exists(complete_path):
@@ -485,6 +491,10 @@ def convert_super_call(match: re.Match[str]) -> str:
 def transpile_text(path: str, is_header: bool, text: str) -> str:
     """Transpile text"""
 
+    if not is_header:
+        # Add prelude
+        text = '// @generated\n#include "prelude.h"\n#include "Object.hh"\n' + text
+
     # Remove #pragma once
     text = re.sub(r"#pragma once\n", "", text)
     # Convert includes
@@ -558,7 +568,8 @@ if __name__ == "__main__":
                 if args.output is not None
                 else path.replace(".cc", ".c").replace(".hh", ".h") if args.source else tempfile.mktemp(".c")
             )
-            file_write(source_path, transpile_text(path, path.endswith(".hh"), f"// @generated\n{file_read(path)}"))
+            ConvertInclude.processed_includes = []
+            file_write(source_path, transpile_text(path, path.endswith(".hh"), file_read(path)))
             if args.source:
                 sys.exit(0)
 
