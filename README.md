@@ -129,6 +129,16 @@ void Cat::greet() {
 }
 ```
 
+### Super call
+
+You can call the parent class method with the super call syntax:
+
+```cpp
+void Dog::greet() {
+    Animal::greet();
+}
+```
+
 ### Self\* type
 
 When a class method returns itself a.k.a. `return this;` you need to use the `Self*` return type:

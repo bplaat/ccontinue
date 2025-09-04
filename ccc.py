@@ -460,6 +460,27 @@ def convert_method(match: re.Match[str]) -> str:
     return c
 
 
+# MARK: Convert super call
+def convert_super_call(match: re.Match[str]) -> str:
+    """Convert super call"""
+    parent_class_name, method_name, arguments = match.groups()
+
+    if parent_class_name not in classes:
+        logging.error("Can't find class: %s", parent_class_name)
+        sys.exit(1)
+    parent_class = classes[parent_class_name]
+    method = parent_class.methods.get(method_name)
+    if method is None:
+        logging.error("Can't find method: %s::%s", parent_class_name, method_name)
+        sys.exit(1)
+
+    return (
+        f"_{to_snake_case(method.class_)}_{method.name}(({method.class_}*)(this)"
+        + (f", {arguments}" if len(arguments) > 0 else "")
+        + ");"
+    )
+
+
 # MARK: Transpile text
 def transpile_text(path: str, is_header: bool, text: str) -> str:
     """Transpile text"""
@@ -484,6 +505,13 @@ def transpile_text(path: str, is_header: bool, text: str) -> str:
         text = re.sub(
             r"([_A-Za-z][_A-Za-z0-9 ]*[\**|\s+])\s*([_A-Za-z][_A-Za-z0-9]*)::([_A-Za-z][_A-Za-z0-9]*)\(([^\)]*)\)\s*{",
             convert_method,
+            text,
+        )
+
+        # Convert super calls
+        text = re.sub(
+            r"([_A-Za-z][_A-Za-z0-9]*)::([_A-Za-z][_A-Za-z0-9]*)\(([^\)]*)\)\s*;",
+            convert_super_call,
             text,
         )
 

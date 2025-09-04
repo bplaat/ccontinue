@@ -1,7 +1,7 @@
 #include <List.hh>
 
 void List::init() {
-    _object_init((Object*)this);
+    Object::init();
     this->items = malloc(sizeof(Object*) * this->capacity);
 }
 
@@ -9,7 +9,7 @@ void List::deinit() {
     for (usize i = 0; i < this->size; i++)
         object_free(this->items[i]);
     free(this->items);
-    _object_deinit((Object*)this);
+    Object::deinit();
 }
 
 Object* List::get(usize index) {
