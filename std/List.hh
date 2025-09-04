@@ -8,8 +8,7 @@ class List {
     @get usize size = 0;
 
     void init();
-    virtual List* ref();
-    virtual void free();
+    virtual void deinit();
     Object* get(usize index);
     void set(usize index, Object* item);
     void add(Object* item);

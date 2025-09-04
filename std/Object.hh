@@ -6,6 +6,7 @@ class Object {
     usize refs = 1;
 
     void init();
-    virtual Object* ref();
-    virtual void free();
+    virtual void deinit();
+    Self* ref();
+    void free();
 };

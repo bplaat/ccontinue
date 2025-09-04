@@ -40,6 +40,7 @@ class Method:
 
     name: str
     return_type: str
+    is_return_self: bool
     is_virtual: bool
     arguments: List[Argument]
     class_: str
@@ -203,6 +204,11 @@ class ConvertClass:
                 return_type = return_type.replace("virtual ", "")
                 is_virtual = True
 
+            is_return_self = False
+            if re.match(r"Self\s*\*", return_type):
+                is_return_self = True
+                return_type = return_type.replace("Self", class_.name)
+
             if is_zero != "":
                 if is_virtual:
                     class_.is_abstract = True
@@ -215,7 +221,9 @@ class ConvertClass:
                 class_.methods[name].arguments = arguments
                 class_.methods[name].class_ = class_.name
             else:
-                class_.methods[name] = Method(name, return_type, is_virtual, arguments, class_.name, class_.name)
+                class_.methods[name] = Method(
+                    name, return_type, is_return_self, is_virtual, arguments, class_.name, class_.name
+                )
 
         # ==== Generate missing methods ====
         g = ""
@@ -254,19 +262,21 @@ class ConvertClass:
                                 g += f"    this->{field.name} = {field.name};\n"
                 g += "}\n\n"
 
-            # Free method
-            field_needs_free = next((field for field in class_.fields.values() if "free" in field.attributes), None)
-            if class_.methods["free"].class_ != class_.name and field_needs_free is not None:
-                class_.methods["free"].class_ = class_.name
+            # Deinit method
+            field_needs_deinit = False
+            for field in class_.fields.values():
+                if field.class_ == class_.name:
+                    if "deinit" in field.attributes:
+                        field_needs_deinit = True
+                        break
+            if field_needs_deinit:
+                class_.methods["deinit"].class_ = class_.name
 
-                g += f"void _{class_.snake_name}_free({class_.name}* this) {{\n"
+                g += f"void _{class_.snake_name}_deinit({class_.name}* this) {{\n"
                 for field in class_.fields.values():
-                    if field.class_ == class_.name and "free" in field.attributes:
-                        if len(field.attributes["free"]) > 0:
-                            if len(field.attributes["free"]) > 0:
-                                g += f"    {field.attributes['free'][0]}(this->{field.name});\n"
-                            else:
-                                g += f"    free(this->{field.name});\n"
+                    if field.class_ == class_.name and "deinit" in field.attributes:
+                        if len(field.attributes["deinit"]) > 0:
+                            g += f"    {field.attributes['deinit'][0]}(this->{field.name});\n"
                         else:
                             for other_class in classes.values():
                                 if field.type.startswith(other_class.name):
@@ -274,15 +284,17 @@ class ConvertClass:
                                     break
                             else:
                                 g += f"    free(this->{field.name});\n"
-                class_with_free = find_class_for_method(classes[parent_class.name], "free")
-                g += f"    _{class_with_free.snake_name}_free(({class_with_free.name}*)this);\n"
+                class_with_deinit = find_class_for_method(classes[parent_class.name], "deinit")
+                g += f"    _{class_with_deinit.snake_name}_deinit(({class_with_deinit.name}*)this);\n"
                 g += "}\n\n"
 
             # Get attribute
             for field in class_.fields.values():
                 if field.class_ == class_.name and ("get" in field.attributes or "prop" in field.attributes):
                     method_name = f"get_{field.name}"
-                    class_.methods[method_name] = Method(method_name, field.type, False, [], class_.name, class_.name)
+                    class_.methods[method_name] = Method(
+                        method_name, field.type, False, False, [], class_.name, class_.name
+                    )
 
                     g += f"{field.type} _{class_.snake_name}_get_{field.name}({class_.name}* this) {{\n"
                     g += f"    return this->{field.name};\n"
@@ -293,7 +305,7 @@ class ConvertClass:
                 if field.class_ == class_.name and ("set" in field.attributes or "prop" in field.attributes):
                     method_name = f"set_{field.name}"
                     class_.methods[method_name] = Method(
-                        method_name, "void", False, [Argument(field.name, field.type)], class_.name, class_.name
+                        method_name, "void", False, False, [Argument(field.name, field.type)], class_.name, class_.name
                     )
 
                     g += f"void _{class_.snake_name}_set_{field.name}({class_.name}* this, "
@@ -384,14 +396,17 @@ class ConvertClass:
 
         # Class macro method wrappers
         for method in class_.methods.values():
-            target = ""
+            return_cast = ""
+            if method.is_return_self:
+                return_cast = f"({class_.name}*)"
+
+            target = f"_{to_snake_case(method.class_)}_{method.name}"
             if method.is_virtual:
                 target = f"(({class_.name}*)(this))->vtbl->{method.name}"
-            else:
-                target = f"_{to_snake_case(method.class_)}_{method.name}"
+
             c += f"#define {class_.snake_name}_{method.name}("
             c += ", ".join(["this"] + [argument.name for argument in method.arguments])
-            c += f") {target}(({method.class_}*)(this)"
+            c += f") {return_cast}{target}(({method.class_}*)(this)"
             for argument in method.arguments:
                 for other_class in classes.values():
                     if argument.type.startswith(other_class.name):
@@ -418,6 +433,13 @@ def convert_method(match: re.Match[str]) -> str:
         logging.error("Can't find class: %s", class_name)
         sys.exit(1)
     class_ = classes[class_name]
+    method = class_.methods.get(method_name)
+    if method is None:
+        logging.error("Can't find method: %s::%s", class_name, method_name)
+        sys.exit(1)
+
+    if method.is_return_self:
+        return_type = return_type.replace("Self", class_.name)
 
     arguments_str = f", {arguments}" if len(arguments) > 0 else ""
     c = f"{return_type.strip()} _{class_.snake_name}_{method_name}({class_name}* this{arguments_str}) {{"
@@ -427,11 +449,11 @@ def convert_method(match: re.Match[str]) -> str:
             if field.class_ == class_.name and field.default is not None:
                 c += f"\n    this->{field.name} = {field.default};"
 
-    if method_name == "free":
+    if method_name == "deinit":
         for field in class_.fields.values():
-            if field.class_ == class_.name and "free" in field.attributes:
-                if len(field.attributes["free"]) > 0:
-                    c += f"\n    {field.attributes['free'][0]}(this->{field.name});"
+            if field.class_ == class_.name and "deinit" in field.attributes:
+                if len(field.attributes["deinit"]) > 0:
+                    c += f"\n    {field.attributes['deinit'][0]}(this->{field.name});"
                 else:
                     c += f"\n    free(this->{field.name});"
 

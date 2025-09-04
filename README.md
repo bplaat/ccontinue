@@ -59,7 +59,7 @@ You can add attributes with the `@attribute` syntax before class fields to gener
 
 ```cpp
 class Person {
-    @get @init(strdup) @free char* name;
+    @get @init(strdup) @deinit char* name;
     @prop @init i32 age;
 };
 ```
@@ -70,8 +70,9 @@ This will in turn generated the following methods for us:
 class Person {
     // ...
     void init(char* name, i32 age);
-    virtual Person* ref();
-    virtual void free();
+    virtual void deinit();
+    Person* ref();
+    void free();
 
     char* get_name();
     i32 get_age();
@@ -95,7 +96,7 @@ You can use the following attributes:
 - `@set` Generate a setter method for this field
 - `@prop` alias for `@get` and `@set`
 - `@init` or `@init(init_function)` Use this field as an argument for the generated `init` method
-- `@free` or `@free(free_function)` Free this field in the generated `free` method
+- `@deinit` or `@deinit(free_function)` Free this field in the generated `deinit` method
 
 ### Abstract classes
 
@@ -103,7 +104,7 @@ Classes can be made abstract when they have a virtual method without implementat
 
 ```cpp
 class Animal {
-    @prop @init(strdup) @free char* name;
+    @prop @init(strdup) @deinit char* name;
     virtual void greet() = 0;
 };
 ```
@@ -125,6 +126,20 @@ class Cat : Animal {
 };
 void Cat::greet() {
     printf("The cat %s greets you!\n", this->name);
+}
+```
+
+### Self\* type
+
+When a class method returns itself a.k.a. `return this;` you need to use the `Self*` return type:
+
+```cpp
+class PersonBuilder {
+    Self* name();
+};
+
+Self* PersonBuilder::name() {
+    return this;
 }
 ```
 

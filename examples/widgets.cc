@@ -17,7 +17,7 @@ void Widget::draw() {
 
 // Container
 class Container : Widget {
-    @get @free(list_free) List* children = list_new();
+    @get @deinit List* children = list_new();
 
     void add(Widget* widget);
 };
@@ -36,7 +36,7 @@ class Box : Container {
 
 // Label
 class Label : Widget {
-    @prop @init(strdup) @free char* text;
+    @prop @init(strdup) @deinit char* text;
 };
 
 // Main

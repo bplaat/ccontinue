@@ -5,19 +5,11 @@ void List::init() {
     this->items = malloc(sizeof(Object*) * this->capacity);
 }
 
-List* List::ref() {
-    for (usize i = 0; i < this->size; i++)
-        object_ref(this->items[i]);
-    return (List*)_object_ref((Object*)this);
-}
-
-void List::free() {
+void List::deinit() {
     for (usize i = 0; i < this->size; i++)
         object_free(this->items[i]);
-    if (--this->refs == 0) {
-        free(this->items);
-        free(this);
-    }
+    free(this->items);
+    _object_deinit((Object*)this);
 }
 
 Object* List::get(usize index) {
