@@ -36,7 +36,7 @@ class Box : Container {
 
 // Label
 class Label : Widget {
-    @prop @init(strdup) @free(free) char* text;
+    @prop @init(strdup) @free char* text;
 };
 
 // Main

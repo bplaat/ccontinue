@@ -2,7 +2,7 @@
 
 #include "Object.hh"
 
-class List : Object {
+class List {
     Object** items;
     @get usize capacity = 8;
     @get usize size = 0;

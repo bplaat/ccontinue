@@ -2,7 +2,7 @@
 
 // Animal
 class Animal {
-    @get @init(strdup) @free(free) char* name;
+    @get @init(strdup) @free char* name;
     virtual void jump() = 0;
 };
 

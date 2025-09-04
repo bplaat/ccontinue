@@ -1,7 +1,7 @@
 #include <List.hh>
 
 class Person {
-    @get @init(strdup) @free(free) char* name;
+    @get @init(strdup) @free char* name;
     @prop @init i32 age;
 
     void greet();

@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
-""" cContinue Transpiler v0.1.0
-"""
+"""cContinue Transpiler v0.1.0"""
 
 import argparse
 import copy
@@ -15,6 +14,7 @@ import tempfile
 from typing import Dict, List, Optional
 
 
+# MARK: Types
 @dataclass
 class Field:
     """Class field metadata"""
@@ -65,10 +65,12 @@ class Class:
         self.methods = {}
 
 
+# MARK: Globals
 include_paths: List[str] = []
 classes: Dict[str, Class] = {}
 
 
+# MARK: Utils
 def file_read(path: str) -> str:
     """Read file"""
     with open(path, "r", encoding="utf-8") as file:
@@ -97,6 +99,7 @@ def find_class_for_method(class_: Class, method_name: str) -> Class:
     return find_class_for_method(classes[class_.parent_name], method_name)
 
 
+# MARK: Convert include
 class ConvertInclude:
     """Convert class"""
 
@@ -117,6 +120,7 @@ class ConvertInclude:
         sys.exit(1)
 
 
+# MARK: Convert class
 class ConvertClass:
     """Convert class"""
 
@@ -259,7 +263,10 @@ class ConvertClass:
                 for field in class_.fields.values():
                     if field.class_ == class_.name and "free" in field.attributes:
                         if len(field.attributes["free"]) > 0:
-                            g += f"    {field.attributes['free'][0]}(this->{field.name});\n"
+                            if len(field.attributes["free"]) > 0:
+                                g += f"    {field.attributes['free'][0]}(this->{field.name});\n"
+                            else:
+                                g += f"    free(this->{field.name});\n"
                         else:
                             for other_class in classes.values():
                                 if field.type.startswith(other_class.name):
@@ -402,6 +409,7 @@ class ConvertClass:
         return c
 
 
+# MARK: Convert method
 def convert_method(match: re.Match[str]) -> str:
     """Convert method define"""
     return_type, class_name, method_name, arguments = match.groups()
@@ -430,6 +438,7 @@ def convert_method(match: re.Match[str]) -> str:
     return c
 
 
+# MARK: Transpile text
 def transpile_text(path: str, is_header: bool, text: str) -> str:
     """Transpile text"""
 
@@ -459,6 +468,7 @@ def transpile_text(path: str, is_header: bool, text: str) -> str:
     return text
 
 
+# MARK: Main
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO, format="[%(levelname)s] %(message)s")
 
